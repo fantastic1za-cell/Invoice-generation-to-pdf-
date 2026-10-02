@@ -1,13 +1,14 @@
 # ==============================================================================
 # SCRIPT NAME: app.py
-# TIMESTAMP: 2026-10-02 23:06:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (NATIVE IOS FILE SAVE / DRIVE DOWNLOAD MODAL)
+# TIMESTAMP: 2026-10-02 23:12:00 SAST
+# STATUS: DIRECT JS AUTO-DOWNLOAD INJECTION & REFINED INTERFACE
 # ==============================================================================
 
 import streamlit as st
 import requests
 import pandas as pd
 import math
+import base64
 from datetime import datetime
 from pdf_engine import build_pdf_document
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
@@ -20,7 +21,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Initialize Session State Databases
+# Initialize Session State
 if "invoices_db" not in st.session_state:
     st.session_state.invoices_db = [
         {
@@ -62,12 +63,8 @@ if "sku_database" not in st.session_state:
         }
     }
 
-# Application Header & Branding
-st.markdown(
-    "<h1 style='text-align: center; color: #FFFFFF;'>MR MOBILE SA — Commercial Document & Invoicing Engine</h1>", 
-    unsafe_allow_html=True
-)
-st.markdown("<p style='text-align: center; color: #94A3B8;'>Enterprise Management & Operations Dashboard [Locked: 2026-10-02]</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #FFFFFF;'>MR MOBILE SA — Commercial Document Generator</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94A3B8;'>Enterprise Operational Engine [Locked: 2026-10-02]</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 tab1, tab2 = st.tabs(["📄 Document Generator", "📊 Enterprise Financial Tracking Dashboard"])
@@ -100,7 +97,7 @@ with tab1:
         next_invoice_seq = len(st.session_state.invoices_db) + 1
         date_str = doc_date.strftime("%Y-%m-%d").replace("-", "")
         dynamic_doc_num = f"PI-{date_str}-{next_invoice_seq:02d}"
-        doc_num = st.text_input("Document Number (Auto-Incremented)", value=dynamic_doc_num, disabled=True)
+        doc_num = st.text_input("Document Number", value=dynamic_doc_num, disabled=True)
 
     col_c, col_d = st.columns(2)
     with col_c:
@@ -110,14 +107,13 @@ with tab1:
 
     st.markdown("---")
     st.markdown(
-        f"<div style='padding: 14px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
-        f"<b>Live Market Exchange Rate (US$/ZAR):</b> <span style='color: #38BDF8; font-size: 18px;'><b>R {base_usd_zar:,.2f}</b></span>"
+        f"<div style='padding: 12px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
+        f"<b>Live Market FX (US$/ZAR):</b> <span style='color: #38BDF8; font-size: 16px;'><b>R {base_usd_zar:,.2f}</b></span>"
         f"</div>",
         unsafe_allow_html=True
     )
     st.markdown("---")
 
-    # Client Selection & Separate Add Client Toggle
     col_cl_head1, col_cl_head2 = st.columns([3, 1])
     with col_cl_head1:
         st.markdown("### Client & Billing Details")
@@ -125,7 +121,6 @@ with tab1:
         add_new_client_toggle = st.checkbox("➕ Add New Client")
 
     if add_new_client_toggle:
-        st.info("Enter new client details below. They will be saved to your client database.")
         client_name = st.text_input("New Client Name", value="")
         trading_name = st.text_input("Trading Name", value="")
         reg_vat = st.text_input("Co. Reg & VAT", value="")
@@ -154,7 +149,7 @@ with tab1:
             del_address = st.text_input("Delivery Address", value=client_info["del_address"])
 
     st.markdown("### Commercial Line-Item Specification")
-    num_items = st.number_input("How many products / line items?", min_value=1, max_value=10, value=1)
+    num_items = st.number_input("How many line items?", min_value=1, max_value=10, value=1)
 
     products = []
     grand_excl = 0.0
@@ -179,12 +174,6 @@ with tab1:
         qty = st.number_input(f"Quantity (Units) #{i+1}", min_value=1, value=3000, key=f"qty_{i}")
         unit_price = st.number_input(f"Unit Price Excl. VAT (R) #{i+1}", min_value=0.0, value=float(default_p), format="%.2f", key=f"price_{i}")
         
-        if sku and sku not in st.session_state.sku_database and sku != "+ Add New Custom SKU":
-            st.session_state.sku_database[sku] = {
-                "description": desc,
-                "default_price": unit_price
-            }
-
         net_subtotal = qty * unit_price
         total_incl = net_subtotal * 1.15
         
@@ -226,36 +215,30 @@ with tab1:
     if st.button("Generate PDF Invoice", type="primary"):
         try:
             pdf_buffer = build_pdf_document(invoice_data)
-            
-            existing_idx = next((idx for idx, inv in enumerate(st.session_state.invoices_db) if inv["doc_num"] == dynamic_doc_num), None)
-            new_inv_record = {
-                "doc_num": dynamic_doc_num,
-                "client_name": client_name,
-                "trading_name": trading_name,
-                "invoice_total": grand_incl,
-                "deposit_required": tranche1_incl,
-                "status": "Outstanding",
-                "amount_paid": 0.00,
-                "balance_outstanding": grand_incl,
-                "date": str(doc_date)
-            }
-            
-            if existing_idx is not None:
-                st.session_state.invoices_db[existing_idx] = new_inv_record
-            else:
-                st.session_state.invoices_db.append(new_inv_record)
+            pdf_bytes = pdf_buffer.getvalue()
+            b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
 
-            st.success("PDF generated successfully and recorded in dashboard!")
+            # Direct Download HTML Injection (Bypasses iOS PDF preview screen)
+            download_html = f"""
+                <div style="margin-top: 15px; text-align: center;">
+                    <a id="auto_pdf_dl" href="data:application/pdf;base64,{b64_pdf}" download="{dynamic_doc_num}.pdf" style="
+                        display: inline-block;
+                        padding: 14px 28px;
+                        background-color: #0284C7;
+                        color: #FFFFFF;
+                        font-weight: bold;
+                        font-size: 16px;
+                        text-decoration: none;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+                    ">
+                        📥 Download {dynamic_doc_num}.pdf Directly to Device
+                    </a>
+                </div>
+            """
             
-            # Using st.download_button with mime="application/octet-stream" forces mobile OS
-            # to pop the native Save prompt (Files / Google Drive / OneDrive) instead of opening inline preview.
-            st.download_button(
-                label=f"💾 Save {dynamic_doc_num}.pdf to Files / Google Drive / OneDrive",
-                data=pdf_buffer.getvalue(),
-                file_name=f"{dynamic_doc_num}.pdf",
-                mime="application/octet-stream",
-                type="primary"
-            )
+            st.success("PDF generated successfully!")
+            st.markdown(download_html, unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"Error generating PDF: {e}")
@@ -265,77 +248,16 @@ with tab1:
 # ==========================================
 with tab2:
     st.subheader("Enterprise Financial Tracking Dashboard")
-    st.markdown("Monitor all issued commercial documents, track payment clearances, and inspect outstanding balances in real time.")
-
     if not st.session_state.invoices_db:
         st.info("No invoices generated yet.")
     else:
         df_invoices = pd.DataFrame(st.session_state.invoices_db)
-
-        total_billed = df_invoices["invoice_total"].sum()
-        total_collected = df_invoices["amount_paid"].sum()
-        total_outstanding = df_invoices["balance_outstanding"].sum()
-
         col_m1, col_m2, col_m3 = st.columns(3)
-        col_m1.metric("Total Billed Portfolio", f"R {total_billed:,.2f}")
-        col_m2.metric("Total Collected", f"R {total_collected:,.2f}")
-        col_m3.metric("Total Outstanding Balance", f"R {total_outstanding:,.2f}")
+        col_m1.metric("Total Billed Portfolio", f"R {df_invoices['invoice_total'].sum():,.2f}")
+        col_m2.metric("Total Collected", f"R {df_invoices['amount_paid'].sum():,.2f}")
+        col_m3.metric("Total Outstanding Balance", f"R {df_invoices['balance_outstanding'].sum():,.2f}")
 
         st.markdown("---")
-        st.markdown("### Detailed Invoice Ledger & Payment Manager")
-
-        updated_db = []
-        for idx, inv in enumerate(st.session_state.invoices_db):
-            with st.expander(f"Invoice: {inv['doc_num']} | Client: {inv['client_name']} ({inv['trading_name']}) - [{inv['status']}]"):
-                col_i1, col_i2, col_i3 = st.columns(3)
-                
-                with col_i1:
-                    st.text(f"Document No: {inv['doc_num']}")
-                    st.text(f"Client: {inv['client_name']}")
-                    st.text(f"Trading Name: {inv['trading_name']}")
-                    st.text(f"Issue Date: {inv['date']}")
-
-                with col_i2:
-                    st.text(f"Invoice Total (Incl.): R {inv['invoice_total']:,.2f}")
-                    st.text(f"50% Deposit Req.: R {inv['deposit_required']:,.2f}")
-
-                with col_i3:
-                    new_status = st.selectbox(
-                        "Payment Status", 
-                        ["Outstanding", "Partially Paid", "Paid in Full"], 
-                        index=["Outstanding", "Partially Paid", "Paid in Full"].index(inv["status"]),
-                        key=f"status_{idx}"
-                    )
-                    
-                    max_val = float(inv["invoice_total"])
-                    new_amount_paid = st.number_input(
-                        "Amount Paid (R)", 
-                        min_value=0.0, 
-                        max_value=max_val, 
-                        value=float(inv["amount_paid"]), 
-                        step=1000.0,
-                        key=f"paid_{idx}"
-                    )
-
-                new_balance = max_val - new_amount_paid
-                st.markdown(f"**Calculated Balance Outstanding:** <span style='color:#F87171;'><b>R {new_balance:,.2f}</b></span>", unsafe_allow_html=True)
-
-                updated_db.append({
-                    "doc_num": inv["doc_num"],
-                    "client_name": inv["client_name"],
-                    "trading_name": inv["trading_name"],
-                    "invoice_total": inv["invoice_total"],
-                    "deposit_required": inv["deposit_required"],
-                    "status": new_status,
-                    "amount_paid": new_amount_paid,
-                    "balance_outstanding": new_balance,
-                    "date": inv["date"]
-                })
-
-        st.session_state.invoices_db = updated_db
-
-        st.markdown("---")
-        st.markdown("### Master Ledger Summary Table")
         display_df = pd.DataFrame(st.session_state.invoices_db)
         display_df.columns = ["Invoice No", "Client Name", "Trading Name", "Total (R)", "Deposit (R)", "Status", "Paid (R)", "Outstanding (R)", "Date"]
         st.dataframe(display_df, use_container_width=True)
