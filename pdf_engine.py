@@ -1,5 +1,6 @@
 """
-ReportLab PDF Generation Engine with Non-Overlapping Header Layout & Logo Integration
+ReportLab PDF Generation Engine with Non-Overlapping Header Layout, Logo Integration, 
+and Permanent Terms & Conditions.
 """
 import io
 import os
@@ -20,8 +21,8 @@ logger = logging.getLogger("DocumentGenerator")
 def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool = True) -> io.BytesIO:
     buffer = io.BytesIO()
     
-    top_margin = 22 if enforce_single_page else 36
-    bottom_margin = 22 if enforce_single_page else 36
+    top_margin = 18 if enforce_single_page else 36
+    bottom_margin = 18 if enforce_single_page else 36
     
     doc = SimpleDocTemplate(
         buffer,
@@ -38,21 +39,21 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     
     doc_type = invoice_data.get("document_type", "PRO FORMA INVOICE")
     
-    style_title = ParagraphStyle('DocTitle', parent=normal, fontName='Helvetica-Bold', fontSize=13, leading=15, textColor=colors.HexColor('#0F172A'))
-    style_supplier = ParagraphStyle('SuppText', parent=normal, fontName='Helvetica', fontSize=7, leading=8.8, textColor=colors.HexColor('#1E293B'))
-    style_meta_hdr = ParagraphStyle('MetaHdr', parent=normal, fontName='Helvetica-Bold', fontSize=6, leading=7.5, textColor=colors.HexColor('#64748B'), alignment=1)
-    style_meta_val = ParagraphStyle('MetaVal', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'), alignment=1)
+    style_title = ParagraphStyle('DocTitle', parent=normal, fontName='Helvetica-Bold', fontSize=12, leading=14, textColor=colors.HexColor('#0F172A'))
+    style_supplier = ParagraphStyle('SuppText', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8, textColor=colors.HexColor('#1E293B'))
+    style_meta_hdr = ParagraphStyle('MetaHdr', parent=normal, fontName='Helvetica-Bold', fontSize=5.5, leading=7, textColor=colors.HexColor('#64748B'), alignment=1)
+    style_meta_val = ParagraphStyle('MetaVal', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=1)
     
-    style_cell = ParagraphStyle('CellText', parent=normal, fontName='Helvetica', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'))
-    style_cell_bold = ParagraphStyle('CellTextBold', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'))
-    style_cell_right = ParagraphStyle('CellTextRight', parent=normal, fontName='Helvetica', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'), alignment=2)
-    style_cell_right_bold = ParagraphStyle('CellTextRightBold', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'), alignment=2)
+    style_cell = ParagraphStyle('CellText', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'))
+    style_cell_bold = ParagraphStyle('CellTextBold', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'))
+    style_cell_right = ParagraphStyle('CellTextRight', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=2)
+    style_cell_right_bold = ParagraphStyle('CellTextRightBold', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=2)
 
     # 1. Header with Logo (No text overlapping via 3-column constrained Table layout)
     logo_path = "logo.png"
     if os.path.exists(logo_path):
         try:
-            logo_flowable = Image(logo_path, width=70, height=35)
+            logo_flowable = Image(logo_path, width=65, height=32)
             logo_flowable.hAlign = 'LEFT'
         except Exception:
             logo_flowable = Paragraph("<b>MR MOBILE SA</b>", style_title)
@@ -62,7 +63,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     head_data = [
         [
             logo_flowable,
-            Paragraph(f"<b>{doc_type}</b><br/><font size=6.5 color='#64748B'>Official Commercial Document | SARS Compliant</font>", style_title),
+            Paragraph(f"<b>{doc_type}</b><br/><font size=6 color='#64748B'>Official Commercial Document | SARS Compliant</font>", style_title),
             Paragraph(
                 f"<b>SUPPLIER DETAILS</b><br/>"
                 f"<b>{SUPPLIER_DETAILS['company']}</b><br/>"
@@ -75,14 +76,14 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
             )
         ]
     ]
-    head_table = Table(head_data, colWidths=[80, 200, 267])
+    head_table = Table(head_data, colWidths=[75, 205, 267])
     head_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'), 
         ('ALIGN', (0,0), (0,0), 'LEFT'),
         ('ALIGN', (2,0), (2,0), 'RIGHT')
     ]))
     story.append(head_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
 
     # 2. Client Details
     client = invoice_data.get("client", {})
@@ -101,11 +102,11 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     client_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
         ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        ('TOPPADDING', (0,0), (-1,-1), 4), ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
         ('LEFTPADDING', (0,0), (-1,-1), 5), ('RIGHTPADDING', (0,0), (-1,-1), 5),
     ]))
     story.append(client_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
 
     # 3. Meta Data Table
     meta_data = [
@@ -130,22 +131,22 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     meta_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F1F5F9')),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
     ]))
     story.append(meta_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
 
     # 4. Products Table
-    story.append(Paragraph(f"<b>1. COMMERCIAL LINE-ITEM SPECIFICATION ({str(invoice_data.get('shipping_mode', '')).upper()} MOQ RUN)</b>", ParagraphStyle('SubT', parent=normal, fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#475569'))))
+    story.append(Paragraph(f"<b>1. COMMERCIAL LINE-ITEM SPECIFICATION ({str(invoice_data.get('shipping_mode', '')).upper()} MOQ RUN)</b>", ParagraphStyle('SubT', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#475569'))))
     story.append(Spacer(1, 2))
 
     item_table_data = [[
-        Paragraph("Bespoke Product Description", ParagraphStyle('IH1', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke)),
-        Paragraph("Qty", ParagraphStyle('IH2', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=1)),
-        Paragraph("Unit Price<br/>(Excl. VAT)", ParagraphStyle('IH3', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=2)),
-        Paragraph("Net Subtotal<br/>(Excl. VAT)", ParagraphStyle('IH4', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=2)),
-        Paragraph("Total Price<br/>(Incl. VAT)", ParagraphStyle('IH5', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=2))
+        Paragraph("Bespoke Product Description", ParagraphStyle('IH1', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke)),
+        Paragraph("Qty", ParagraphStyle('IH2', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=1)),
+        Paragraph("Unit Price<br/>(Excl. VAT)", ParagraphStyle('IH3', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2)),
+        Paragraph("Net Subtotal<br/>(Excl. VAT)", ParagraphStyle('IH4', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2)),
+        Paragraph("Total Price<br/>(Incl. VAT)", ParagraphStyle('IH5', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2))
     ]]
 
     products = invoice_data.get("products", [])
@@ -181,34 +182,34 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
         ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F8FAFC')),
     ]))
     story.append(item_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
 
     # 5. Milestone Payment Schedule
     tranche1_excl = grand_excl * 0.50
     tranche1_incl = grand_incl * 0.50
 
-    story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", ParagraphStyle('SubT2', parent=normal, fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#475569'))))
+    story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", ParagraphStyle('SubT2', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#475569'))))
     story.append(Spacer(1, 2))
 
     m_data = [
         [
-            Paragraph("Payment Milestone Tranche", ParagraphStyle('MH1', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke)),
-            Paragraph("Share %", ParagraphStyle('MH2', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=1)),
-            Paragraph("Net Value<br/>(Excl. VAT)", ParagraphStyle('MH3', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=2)),
-            Paragraph("Grand Total<br/>(Incl. VAT)", ParagraphStyle('MH4', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=2))
+            Paragraph("Payment Milestone Tranche", ParagraphStyle('MH1', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke)),
+            Paragraph("Share %", ParagraphStyle('MH2', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=1)),
+            Paragraph("Net Value<br/>(Excl. VAT)", ParagraphStyle('MH3', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2)),
+            Paragraph("Grand Total<br/>(Incl. VAT)", ParagraphStyle('MH4', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2))
         ],
         [
-            Paragraph("<b>TRANCHE 1: STARTUP DEPOSIT</b><br/><font color='#475569'>Required to secure materials & commence factory assembly runs.</font>", style_cell),
+            Paragraph("<b>TRANCHE 1: STARTUP DEPOSIT</b><br/><font color='#475569'>Required to secure materials & commence factory assembly runs. Pricing locked & absorbed as billed.</font>", style_cell),
             Paragraph("<b>50%</b>", ParagraphStyle('MC1', parent=style_cell_bold, alignment=1)),
             Paragraph(f"R {tranche1_excl:,.2f}", style_cell_right),
             Paragraph(f"<b>R {tranche1_incl:,.2f}</b>", style_cell_right_bold)
         ],
         [
-            Paragraph("<b>TRANCHE 2: PORT RELEASE BALANCE</b><br/><font color='#475569'>Payable post-inspection, prior to loading in China.</font>", style_cell),
+            Paragraph("<b>TRANCHE 2: PORT RELEASE BALANCE</b><br/><font color='#475569'>Payable post-inspection, prior to loading in China. Balance subject to prevailing exchange rate at time of loading.</font>", style_cell),
             Paragraph("<b>50%</b>", ParagraphStyle('MC2', parent=style_cell_bold, alignment=1)),
             Paragraph(f"R {tranche1_excl:,.2f}*", style_cell_right),
             Paragraph(f"R {tranche1_incl:,.2f}*", style_cell_right)
@@ -219,34 +220,35 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
     ]))
     story.append(m_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
 
     # 6. Deposit Highlight Box
     words_str = number_to_words_rand(tranche1_incl)
     deposit_box_data = [[
         Paragraph(
-            f"<font size=6.5 color='#B91C1C'><b>TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)</b></font><br/>"
-            f"<font size=6 color='#475569'>({words_str})</font><br/>"
-            f"<font size=11 color='#B91C1C'><b>R {tranche1_incl:,.2f}</b></font>",
-            ParagraphStyle('DepStyle', parent=normal, alignment=1, leading=10)
+            f"<font size=6 color='#B91C1C'><b>TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)</b></font><br/>"
+            f"<font size=5.5 color='#475569'>({words_str})</font><br/>"
+            f"<font size=10 color='#B91C1C'><b>R {tranche1_incl:,.2f}</b></font><br/>"
+            f"<font size=5.5 color='#1E293B'><b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit (Tranche 1: R {tranche1_incl:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) rate at the time of final port release payment.</font>",
+            ParagraphStyle('DepStyle', parent=normal, alignment=1, leading=8)
         )
     ]]
     dep_table = Table(deposit_box_data, colWidths=[547])
     dep_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')),
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#FCA5A5')),
+        ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#FCA5A5')),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('TOPPADDING', (0,0), (-1,-1), 4), ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(dep_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
 
     # 7. Banking Info
-    bank_hdr_style = ParagraphStyle('BH', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=1)
-    bank_body_style = ParagraphStyle('BC', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8.5, textColor=colors.HexColor('#1E293B'))
+    bank_hdr_style = ParagraphStyle('BH', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=1)
+    bank_body_style = ParagraphStyle('BC', parent=normal, fontName='Helvetica', fontSize=6, leading=7.5, textColor=colors.HexColor('#1E293B'))
 
     bank_table_data = [
         [
@@ -277,11 +279,37 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
         ('BACKGROUND', (0,1), (-1,1), colors.HexColor('#F8FAFC')),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-        ('LEFTPADDING', (0,0), (-1,-1), 5), ('RIGHTPADDING', (0,0), (-1,-1), 5),
+        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+        ('LEFTPADDING', (0,0), (-1,-1), 4), ('RIGHTPADDING', (0,0), (-1,-1), 4),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
     story.append(bank_table)
+    story.append(Spacer(1, 3))
+
+    # 8. Permanent Statutory Compliance & Logistical Clauses Block
+    terms_hdr_style = ParagraphStyle('TH', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'))
+    terms_body_style = ParagraphStyle('TB', parent=normal, fontName='Helvetica', fontSize=5.5, leading=7, textColor=colors.HexColor('#334155'))
+
+    terms_data = [
+        [
+            Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", terms_hdr_style)
+        ],
+        [
+            Paragraph(
+                "• <b>Raw Material Securement:</b> Production planning, custom material blending, and machine line configurations will trigger automatically upon formal reflection of the 50% Tranche 1 deposit inside our corporate banking treasury. The 50% initial startup pricing is absorbed and fixed as billed.<br/>"
+                "• <b>Origin Loading Protection & FX Adjustment:</b> The final 50% balance tranche is contractually tied to origin quality control (QC) verification prior to container loading in China. The final balance payment will be calculated based on the prevailing foreign exchange (FX) rate at the time of transaction settlement.",
+                terms_body_style
+            )
+        ]
+    ]
+    terms_table = Table(terms_data, colWidths=[547])
+    terms_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+        ('LEFTPADDING', (0,0), (-1,-1), 4), ('RIGHTPADDING', (0,0), (-1,-1), 4),
+    ]))
+    story.append(terms_table)
 
     try:
         doc.build(story)
