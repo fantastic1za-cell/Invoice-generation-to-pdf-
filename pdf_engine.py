@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 23:30:00 SAST
-# STATUS: CLICKABLE LINKS (EMAIL/CALL/WA) + 3-LINE SPACING BEFORE CLIENT DETAILS
+# TIMESTAMP: 2026-10-02 23:40:00 SAST
+# STATUS: ADDRESS WRAPPING FIXED & 3-LINE CLEARANCE INSERTED BEFORE BILLING
 # ==============================================================================
 
 import os
@@ -80,7 +80,7 @@ def build_pdf_document(data):
     body_bold = ParagraphStyle('TableBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, textColor=PRIMARY_COLOR)
     header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white)
 
-    # 1. Supplier Details Header with Links & Line Breaks
+    # 1. Supplier Details Header
     supplier = data.get('supplier_details', {})
     
     email_addr = supplier.get('email', 'nisaar@fantastic1.com')
@@ -89,8 +89,8 @@ def build_pdf_document(data):
     phone_wa_display = supplier.get('phone_wa', '082 786 7712')
     phone_wa_raw = supplier.get('phone_wa_raw', '27827867712')
     
-    address_l1 = supplier.get('address_line1', '58 Paarlshoop Road, Homestead Park, 2092')
-    address_l2 = supplier.get('address_line2', 'Johannesburg, South Africa')
+    street_addr = supplier.get('street_address', '58 Paarlshoop Road, Homestead Park, 2092')
+    city_country = supplier.get('city_country', 'Johannesburg, South Africa')
 
     supplier_formatted_text = (
         f"<b>SUPPLIER DETAILS</b><br/>"
@@ -98,8 +98,8 @@ def build_pdf_document(data):
         f"{supplier.get('trading', '')}<br/>"
         f"<b>VAT Details:</b> {supplier.get('vat', '')}<br/>"
         f"<b>EMAIL:</b> <a href=\"mailto:{email_addr}\" color=\"#0284C7\"><u>{email_addr}</u></a><br/>"
-        f"{address_l1}<br/>"
-        f"{address_l2}<br/>"
+        f"{street_addr}<br/>"
+        f"{city_country}<br/>"
         f"<b>Contact:</b> <a href=\"tel:{phone_call_raw}\" color=\"#0284C7\"><u>{phone_call_display}</u></a> / "
         f"<a href=\"https://wa.me/{phone_wa_raw}\" color=\"#16A34A\"><u>{phone_wa_display} (WhatsApp)</u></a>"
     )
@@ -118,10 +118,10 @@ def build_pdf_document(data):
     header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('SPAN', (1,0), (1,1)), ('BOTTOMPADDING', (0,0), (-1,-1), 0)]))
     story.append(header_table)
 
-    # Leave 3 blank lines (24pt space) after contact details before Client Billing Details
-    story.append(Spacer(1, 24))
+    # 3 full line spaces (30pt clearance) before CLIENT & BILLING DETAILS heading
+    story.append(Spacer(1, 30))
 
-    # 2. Client & Billing Details Table
+    # 2. Client Details Table
     client = data.get('client', {})
     client_data = [
         [Paragraph("<b>CLIENT & BILLING DETAILS</b>", header_style)],
