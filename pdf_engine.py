@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 23:06:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (SINGLE PAGE A4, 0.30 WATERMARK, NO HEADER LOGO)
+# TIMESTAMP: 2026-10-02 23:12:00 SAST
+# STATUS: NO HEADER LOGO, 0.30 OPACITY FULL WATERMARK, SINGLE PAGE LOCK
 # ==============================================================================
 
 import os
@@ -14,8 +14,8 @@ from reportlab.pdfgen import canvas
 
 class NumberedCanvas(canvas.Canvas):
     """
-    Custom canvas drawing a full-page background logo watermark 
-    with 0.30 opacity (5x darker/brighter) across the entire A4 canvas.
+    Draws full-page background logo watermark at 0.30 opacity 
+    (5x darker/brighter than baseline 0.06).
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,12 +37,8 @@ class NumberedCanvas(canvas.Canvas):
         logo_path = "mmsalogo.png.jpg"
         if os.path.exists(logo_path):
             try:
-                # 0.30 Opacity (5x darker/brighter than baseline 0.06)
                 self.setFillAlpha(0.30)
-                
-                # Full A4 Page Dimensions (595.27 x 841.89 pt)
                 page_w, page_h = 595.27, 841.89
-                
                 self.drawImage(
                     logo_path, 
                     0, 
@@ -60,7 +56,7 @@ class NumberedCanvas(canvas.Canvas):
 def build_pdf_document(data):
     buffer = io.BytesIO()
     
-    # Page setup with narrow margins (20pt = ~7mm) to lock everything onto 1 page
+    # Narrow 20pt margins for tight 1-page fit
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -85,7 +81,7 @@ def build_pdf_document(data):
     body_bold = ParagraphStyle('TableBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, textColor=PRIMARY_COLOR)
     header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white)
 
-    # 1. Supplier Details Header (No Header Logo)
+    # 1. Supplier Details Header (TOP LOGO COMPLETELY REMOVED)
     supplier = data.get('supplier_details', {
         "entity": "IRESQ LA LUCIA PTY LTD",
         "trading": "T/A MR MOBILE SA",
