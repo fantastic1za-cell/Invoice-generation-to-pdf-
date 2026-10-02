@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 23:12:00 SAST
-# STATUS: NO HEADER LOGO, 0.30 OPACITY FULL WATERMARK, SINGLE PAGE LOCK
+# TIMESTAMP: 2026-10-02 23:22:00 SAST
+# STATUS: WATERMARK LIGHTENED TO 0.15 (2X LIGHTER) & DYNAMIC FX OUTPUT CONTROL
 # ==============================================================================
 
 import os
@@ -14,8 +14,8 @@ from reportlab.pdfgen import canvas
 
 class NumberedCanvas(canvas.Canvas):
     """
-    Draws full-page background logo watermark at 0.30 opacity 
-    (5x darker/brighter than baseline 0.06).
+    Draws full-page background logo watermark at 0.15 opacity 
+    (2x lighter than previous 0.30 for clear readability).
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,7 +37,7 @@ class NumberedCanvas(canvas.Canvas):
         logo_path = "mmsalogo.png.jpg"
         if os.path.exists(logo_path):
             try:
-                self.setFillAlpha(0.30)
+                self.setFillAlpha(0.15)  # 2x lighter opacity
                 page_w, page_h = 595.27, 841.89
                 self.drawImage(
                     logo_path, 
@@ -56,7 +56,6 @@ class NumberedCanvas(canvas.Canvas):
 def build_pdf_document(data):
     buffer = io.BytesIO()
     
-    # Narrow 20pt margins for tight 1-page fit
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -81,15 +80,8 @@ def build_pdf_document(data):
     body_bold = ParagraphStyle('TableBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, textColor=PRIMARY_COLOR)
     header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white)
 
-    # 1. Supplier Details Header (TOP LOGO COMPLETELY REMOVED)
-    supplier = data.get('supplier_details', {
-        "entity": "IRESQ LA LUCIA PTY LTD",
-        "trading": "T/A MR MOBILE SA",
-        "vat": "4960281899",
-        "email": "nisaar@fantastic1.com",
-        "address": "58 Paarlshoop Road, Homestead Park, 2092 Johannesburg, South Africa",
-        "contact": "068 710 1939 / 082 786 7712"
-    })
+    # 1. Supplier Details Header
+    supplier = data.get('supplier_details', {})
 
     header_data = [
         [
@@ -133,23 +125,38 @@ def build_pdf_document(data):
     story.append(client_table)
     story.append(Spacer(1, 4))
 
-    # 3. Document Meta Details Table
-    meta_headers = [Paragraph("INVOICE NO", header_style), Paragraph("TAX REFERENCE", header_style), Paragraph("DATE", header_style), Paragraph("SHIPPING", header_style), Paragraph("DUE DATE", header_style), Paragraph("VALIDITY", header_style), Paragraph("US$/ZAR FX", header_style)]
-    meta_values = [
-        Paragraph(str(data.get('invoice_num', '')), body_bold),
-        Paragraph(str(supplier.get('vat', '')), body_style),
-        Paragraph(str(data.get('invoice_date', '')), body_style),
-        Paragraph(str(data.get('shipping_mode', '')), body_style),
-        Paragraph(str(data.get('due_date', '')), body_style),
-        Paragraph(str(data.get('validity', '')), body_style),
-        Paragraph(f"<b>{data.get('exchange_rate_display', '')}</b>", body_bold)
-    ]
-    meta_table = Table([meta_headers, meta_values], colWidths=[80, 80, 75, 80, 85, 70, 85])
+    # 3. Document Meta Details Table (Dynamically includes or hides FX column)
+    show_fx = data.get('show_fx_on_output', True)
+    
+    if show_fx:
+        meta_headers = [Paragraph("INVOICE NO", header_style), Paragraph("TAX REFERENCE", header_style), Paragraph("DATE", header_style), Paragraph("SHIPPING", header_style), Paragraph("DUE DATE", header_style), Paragraph("VALIDITY", header_style), Paragraph("US$/ZAR FX", header_style)]
+        meta_values = [
+            Paragraph(str(data.get('invoice_num', '')), body_bold),
+            Paragraph(str(supplier.get('vat', '')), body_style),
+            Paragraph(str(data.get('invoice_date', '')), body_style),
+            Paragraph(str(data.get('shipping_mode', '')), body_style),
+            Paragraph(str(data.get('due_date', '')), body_style),
+            Paragraph(str(data.get('validity', '')), body_style),
+            Paragraph(f"<b>{data.get('exchange_rate_display', '')}</b>", body_bold)
+        ]
+        meta_table = Table([meta_headers, meta_values], colWidths=[80, 80, 75, 80, 85, 70, 85])
+    else:
+        meta_headers = [Paragraph("INVOICE NO", header_style), Paragraph("TAX REFERENCE", header_style), Paragraph("DATE", header_style), Paragraph("SHIPPING", header_style), Paragraph("DUE DATE", header_style), Paragraph("VALIDITY", header_style)]
+        meta_values = [
+            Paragraph(str(data.get('invoice_num', '')), body_bold),
+            Paragraph(str(supplier.get('vat', '')), body_style),
+            Paragraph(str(data.get('invoice_date', '')), body_style),
+            Paragraph(str(data.get('shipping_mode', '')), body_style),
+            Paragraph(str(data.get('due_date', '')), body_style),
+            Paragraph(str(data.get('validity', '')), body_style)
+        ]
+        meta_table = Table([meta_headers, meta_values], colWidths=[95, 95, 85, 95, 100, 85])
+
     meta_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), SECONDARY_COLOR), ('BACKGROUND', (0,1), (-1,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(meta_table)
     story.append(Spacer(1, 4))
 
-    # 4. Commercial Line Items Specification
+    # 4. Commercial Line Items
     story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", body_bold))
     story.append(Spacer(1, 2))
 
@@ -208,34 +215,22 @@ def build_pdf_document(data):
     story.append(due_banner_table)
     story.append(Spacer(1, 4))
 
-    # 6. Payment & FX Terms
-    fx_terms_text = (
-        f"<b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit "
-        f"(Tranche 1: R {tranche1:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. "
-        f"The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) "
-        f"rate at the time of final port release payment."
-    )
-    fx_table = Table([[Paragraph(fx_terms_text, body_style)]], colWidths=[555])
-    fx_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FFFBEB")), ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#F59E0B")), ('PADDING', (0,0), (-1,-1), 3)]))
-    story.append(fx_table)
-    story.append(Spacer(1, 4))
+    # 6. Payment & FX Terms (Only shown if FX option is enabled)
+    if show_fx:
+        fx_terms_text = (
+            f"<b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit "
+            f"(Tranche 1: R {tranche1:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. "
+            f"The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) "
+            f"rate at the time of final port release payment."
+        )
+        fx_table = Table([[Paragraph(fx_terms_text, body_style)]], colWidths=[555])
+        fx_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FFFBEB")), ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#F59E0B")), ('PADDING', (0,0), (-1,-1), 3)]))
+        story.append(fx_table)
+        story.append(Spacer(1, 4))
 
     # 7. Banking Details Table
-    bank_p = data.get('bank_details_primary', {
-        "account_name": "IRESQ LA LUCIA PTY LTD",
-        "bank_name": "First National Bank (FNB)",
-        "account_type": "First Business Zero",
-        "account_number": "63152083390",
-        "branch_code": "256505 (Melville)"
-    })
-    bank_s = data.get('bank_details_secondary', {
-        "account_name": "IRESQ LA LUCIA PTY LTD T/A MMSA FBA",
-        "bank_name": "First National Bank (FNB)",
-        "account_type": "Franchise Business Account",
-        "account_number": "63230107658",
-        "branch_code": "256505",
-        "swift": "FIRNZAJJ"
-    })
+    bank_p = data.get('bank_details_primary', {})
+    bank_s = data.get('bank_details_secondary', {})
 
     bank_headers = [Paragraph("OFFICIAL CORPORATE ACCOUNT (FNB 1)", header_style), Paragraph("FRANCHISE BUSINESS ACCOUNT (FNB 2)", header_style)]
     bank_rows = [
@@ -250,7 +245,7 @@ def build_pdf_document(data):
     story.append(bank_table)
     story.append(Spacer(1, 4))
 
-    # 8. Statutory Compliance & Logistical Clauses
+    # 8. Statutory Compliance
     compliance_content = [
         [Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", header_style)],
         [Paragraph(
