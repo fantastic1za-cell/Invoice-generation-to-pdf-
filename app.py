@@ -1,6 +1,14 @@
+# ==============================================================================
+# SCRIPT NAME: app.py
+# TIMESTAMP: 2026-10-02 15:33:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE FAIL-SAFE (DIRECT DOWNLOAD LINK ENABLED)
+# ==============================================================================
+
 import streamlit as st
 import requests
 import pandas as pd
+import math
+import base64
 from datetime import datetime
 from pdf_engine import build_pdf_document
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
@@ -60,7 +68,7 @@ st.markdown(
     "<h1 style='text-align: center; color: #FFFFFF;'>MR MOBILE SA — Commercial Document & Invoicing Engine</h1>", 
     unsafe_allow_html=True
 )
-st.markdown("<p style='text-align: center; color: #94A3B8;'>Enterprise Management & Operations Dashboard</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94A3B8;'>Enterprise Management & Operations Dashboard [Locked: 2026-10-02]</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Multi-tab layout configuration
@@ -72,15 +80,13 @@ tab1, tab2 = st.tabs(["📄 Document Generator", "📊 Enterprise Financial Trac
 with tab1:
     st.subheader("Configure & Generate Commercial Document")
     
-    # Fetch live US$/ZAR rate (Base rate without markup, rounded up to 2 decimal places)
+    # Fetch live US$/ZAR rate (Base rate without markup, rounded up to 2 decimal places with failover)
     def get_live_usd_zar_rate():
         try:
             response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
             if response.status_code == 200:
                 rates = response.json().get("rates", {})
                 raw_rate = float(rates.get("ZAR", 18.25))
-                import math
-                # Round up to 2 decimal places
                 return math.ceil(raw_rate * 100) / 100.0
         except Exception:
             pass
@@ -127,7 +133,6 @@ with tab1:
         reg_address = st.text_input("Reg Address", value="")
         del_address = st.text_input("Delivery Address", value="")
         
-        # Save new client if name is provided
         if client_name and client_name not in st.session_state.client_database:
             st.session_state.client_database[client_name] = {
                 "trading_name": trading_name,
@@ -176,7 +181,6 @@ with tab1:
         qty = st.number_input(f"Quantity (Units) #{i+1}", min_value=1, value=3000, key=f"qty_{i}")
         unit_price = st.number_input(f"Unit Price Excl. VAT (R) #{i+1}", min_value=0.0, value=float(default_p), format="%.2f", key=f"price_{i}")
         
-        # Save new SKUs back to database automatically
         if sku and sku not in st.session_state.sku_database and sku != "+ Add New Custom SKU":
             st.session_state.sku_database[sku] = {
                 "description": desc,
@@ -200,7 +204,6 @@ with tab1:
 
     tranche1_incl = grand_incl * 0.50
 
-    # Compile Invoice Data Payload (including FX rate and clauses for pdf_engine)
     invoice_data = {
         "document_type": doc_type,
         "shipping_mode": shipping_mode,
@@ -225,7 +228,6 @@ with tab1:
         try:
             pdf_buffer = build_pdf_document(invoice_data)
             
-            # Register or update in dashboard database
             existing_idx = next((idx for idx, inv in enumerate(st.session_state.invoices_db) if inv["doc_num"] == doc_num), None)
             new_inv_record = {
                 "doc_num": doc_num,
@@ -245,12 +247,28 @@ with tab1:
                 st.session_state.invoices_db.append(new_inv_record)
 
             st.success("PDF generated successfully and recorded in dashboard!")
-            st.download_button(
-                label="📥 Click Here to Download Generated PDF",
-                data=pdf_buffer,
-                file_name=f"{doc_num}.pdf",
-                mime="application/pdf"
-            )
+            
+            # Direct Download HTML Button (Forces file download prompt without opening fullscreen viewer)
+            b64_pdf = base64.b64encode(pdf_buffer.getvalue()).decode()
+            download_button_html = f"""
+                <div style="margin-top: 15px; margin-bottom: 15px;">
+                    <a href="data:application/pdf;base64,{b64_pdf}" download="{doc_num}.pdf" style="
+                        background-color: #0284C7;
+                        color: white;
+                        padding: 12px 24px;
+                        text-align: center;
+                        text-decoration: none;
+                        display: inline-block;
+                        font-size: 16px;
+                        font-weight: bold;
+                        border-radius: 6px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        width: 100%;
+                    ">📥 Tap Here to Download {doc_num}.pdf Directly</a>
+                </div>
+            """
+            st.markdown(download_button_html, unsafe_allow_html=True)
+
         except Exception as e:
             st.error(f"Error generating PDF: {e}")
 
