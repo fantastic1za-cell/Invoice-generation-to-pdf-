@@ -1,26 +1,23 @@
 """
-ReportLab PDF Generation Engine with Fallback Engine Control
+ReportLab PDF Generation Engine with Non-Overlapping Header Layout & Logo Integration
 """
 import io
+import os
 import logging
 from typing import Dict, Any
 from datetime import datetime
 
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
 from helpers import number_to_words_rand
 
-logger = logging.getLogger("ProFormaGenerator")
+logger = logging.getLogger("DocumentGenerator")
 
 def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool = True) -> io.BytesIO:
-    """
-    Builds a PDF document with primary single-page layout optimization and 
-    fallback logic if overflow is detected.
-    """
     buffer = io.BytesIO()
     
     top_margin = 22 if enforce_single_page else 36
@@ -39,8 +36,9 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     styles = getSampleStyleSheet()
     normal = styles['Normal']
     
-    style_title = ParagraphStyle('DocTitle', parent=normal, fontName='Helvetica-Bold', fontSize=14, leading=16, textColor=colors.HexColor('#0F172A'))
-    style_subtitle = ParagraphStyle('SubTitle', parent=normal, fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#475569'))
+    doc_type = invoice_data.get("document_type", "PRO FORMA INVOICE")
+    
+    style_title = ParagraphStyle('DocTitle', parent=normal, fontName='Helvetica-Bold', fontSize=13, leading=15, textColor=colors.HexColor('#0F172A'))
     style_supplier = ParagraphStyle('SuppText', parent=normal, fontName='Helvetica', fontSize=7, leading=8.8, textColor=colors.HexColor('#1E293B'))
     style_meta_hdr = ParagraphStyle('MetaHdr', parent=normal, fontName='Helvetica-Bold', fontSize=6, leading=7.5, textColor=colors.HexColor('#64748B'), alignment=1)
     style_meta_val = ParagraphStyle('MetaVal', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'), alignment=1)
@@ -50,10 +48,21 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     style_cell_right = ParagraphStyle('CellTextRight', parent=normal, fontName='Helvetica', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'), alignment=2)
     style_cell_right_bold = ParagraphStyle('CellTextRightBold', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'), alignment=2)
 
-    # 1. Header
+    # 1. Header with Logo (No text overlapping via 3-column constrained Table layout)
+    logo_path = "logo.png"
+    if os.path.exists(logo_path):
+        try:
+            logo_flowable = Image(logo_path, width=70, height=35)
+            logo_flowable.hAlign = 'LEFT'
+        except Exception:
+            logo_flowable = Paragraph("<b>MR MOBILE SA</b>", style_title)
+    else:
+        logo_flowable = Paragraph("<b>MR MOBILE SA</b>", style_title)
+
     head_data = [
         [
-            Paragraph("<b>PRO FORMA TAX INVOICE</b><br/><font size=6.5 color='#64748B'>Official Commercial Document | SARS VAT Compliant</font>", style_title),
+            logo_flowable,
+            Paragraph(f"<b>{doc_type}</b><br/><font size=6.5 color='#64748B'>Official Commercial Document | SARS Compliant</font>", style_title),
             Paragraph(
                 f"<b>SUPPLIER DETAILS</b><br/>"
                 f"<b>{SUPPLIER_DETAILS['company']}</b><br/>"
@@ -66,8 +75,12 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
             )
         ]
     ]
-    head_table = Table(head_data, colWidths=[260, 287])
-    head_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('ALIGN', (1,0), (1,0), 'RIGHT')]))
+    head_table = Table(head_data, colWidths=[80, 200, 267])
+    head_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'), 
+        ('ALIGN', (0,0), (0,0), 'LEFT'),
+        ('ALIGN', (2,0), (2,0), 'RIGHT')
+    ]))
     story.append(head_table)
     story.append(Spacer(1, 4))
 
@@ -97,7 +110,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     # 3. Meta Data Table
     meta_data = [
         [
-            Paragraph("INVOICE NO", style_meta_hdr),
+            Paragraph(f"{doc_type} NO", style_meta_hdr),
             Paragraph("TAX REFERENCE", style_meta_hdr),
             Paragraph("DATE", style_meta_hdr),
             Paragraph("SHIPPING MODE", style_meta_hdr),
@@ -124,7 +137,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(Spacer(1, 6))
 
     # 4. Products Table
-    story.append(Paragraph(f"<b>1. COMMERCIAL LINE-ITEM SPECIFICATION ({str(invoice_data.get('shipping_mode', '')).upper()} MOQ RUN)</b>", style_subtitle))
+    story.append(Paragraph(f"<b>1. COMMERCIAL LINE-ITEM SPECIFICATION ({str(invoice_data.get('shipping_mode', '')).upper()} MOQ RUN)</b>", ParagraphStyle('SubT', parent=normal, fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#475569'))))
     story.append(Spacer(1, 2))
 
     item_table_data = [[
@@ -178,7 +191,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     tranche1_excl = grand_excl * 0.50
     tranche1_incl = grand_incl * 0.50
 
-    story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", style_subtitle))
+    story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", ParagraphStyle('SubT2', parent=normal, fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#475569'))))
     story.append(Spacer(1, 2))
 
     m_data = [
