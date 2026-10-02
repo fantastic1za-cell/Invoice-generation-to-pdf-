@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 22:42:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (FIXED TABLE MATRIX ITERATION & FAILSAFE DEFAULTS)
+# TIMESTAMP: 2026-10-02 22:45:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (CORRECTED 2D MATRIX TABLE INPUTS)
 # ==============================================================================
 
 import os
@@ -16,7 +16,7 @@ from reportlab.pdfgen import canvas
 class NumberedCanvas(canvas.Canvas):
     """
     Custom canvas that draws a centered 150px whitewashed watermark logo 
-    on the page background, with safe fallback handling.
+    on the page background with safe opacity handling.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -77,7 +77,7 @@ def build_pdf_document(data):
     body_bold = ParagraphStyle('TableBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=PRIMARY_COLOR)
     header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.white)
 
-    # 1. Header Logo (Centered 45px, 5px space below) & Supplier Details
+    # 1. Header Logo (Centered 45px height, 5px margin below) & Supplier Info
     logo_path = "mmsalogo.png.jpg"
     if os.path.exists(logo_path):
         logo_img = Image(logo_path, width=45, height=45)
@@ -110,7 +110,7 @@ def build_pdf_document(data):
         ],
         [
             Paragraph("Official Commercial Document | SARS VAT Compliant", sub_title_style),
-            ""
+            Paragraph("", sub_title_style)
         ]
     ]
     header_table = Table(header_data, colWidths=[270, 252])
@@ -118,7 +118,7 @@ def build_pdf_document(data):
     story.append(header_table)
     story.append(Spacer(1, 10))
 
-    # 2. Client Details
+    # 2. Client Details Table
     client = data.get('client', {})
     client_data = [
         [Paragraph("<b>CLIENT & BILLING DETAILS</b>", header_style)],
@@ -136,11 +136,11 @@ def build_pdf_document(data):
     story.append(client_table)
     story.append(Spacer(1, 10))
 
-    # 3. Meta Details Table
+    # 3. Document Meta Details Table
     meta_headers = [Paragraph("INVOICE NO", header_style), Paragraph("TAX REFERENCE", header_style), Paragraph("DATE", header_style), Paragraph("SHIPPING", header_style), Paragraph("DUE DATE", header_style), Paragraph("VALIDITY", header_style), Paragraph("US$/ZAR FX", header_style)]
     meta_values = [
         Paragraph(str(data.get('invoice_num', '')), body_bold),
-        Paragraph(supplier.get('vat', ''), body_style),
+        Paragraph(str(supplier.get('vat', '')), body_style),
         Paragraph(str(data.get('invoice_date', '')), body_style),
         Paragraph(str(data.get('shipping_mode', '')), body_style),
         Paragraph(str(data.get('due_date', '')), body_style),
@@ -152,7 +152,7 @@ def build_pdf_document(data):
     story.append(meta_table)
     story.append(Spacer(1, 12))
 
-    # 4. Commercial Line-Item Specification
+    # 4. Commercial Line Items
     story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", body_bold))
     story.append(Spacer(1, 4))
 
@@ -204,13 +204,14 @@ def build_pdf_document(data):
     story.append(sched_table)
     story.append(Spacer(1, 8))
 
+    # Total Due Banner
     due_banner_data = [[Paragraph(f"<font color='#B91C1C'><b>TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)</b></font><br/><font size=12><b>R {tranche1:,.2f}</b></font>", ParagraphStyle('DueBanner', parent=styles['Normal'], alignment=1, fontSize=10, leading=14))]]
     due_banner_table = Table(due_banner_data, colWidths=[522])
     due_banner_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FEF2F2")), ('BOX', (0,0), (-1,-1), 1, ACCENT_COLOR), ('PADDING', (0,0), (-1,-1), 8), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
     story.append(due_banner_table)
     story.append(Spacer(1, 10))
 
-    # 6. Payment & Foreign Exchange Terms
+    # 6. Payment & FX Terms
     fx_terms_text = (
         f"<b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit "
         f"(Tranche 1: R {tranche1:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. "
@@ -222,7 +223,7 @@ def build_pdf_document(data):
     story.append(fx_table)
     story.append(Spacer(1, 10))
 
-    # 7. Banking Details (Failsafe Lookups)
+    # 7. Banking Details Table
     bank_p = data.get('bank_details_primary', {
         "account_name": "IRESQ LA LUCIA PTY LTD",
         "bank_name": "First National Bank (FNB)",
@@ -252,7 +253,7 @@ def build_pdf_document(data):
     story.append(bank_table)
     story.append(Spacer(1, 10))
 
-    # 8. Statutory Compliance & Logistical Clauses (Proper 2D Matrix Structure)
+    # 8. Statutory Compliance & Logistical Clauses (2D List Matrix)
     compliance_content = [
         [Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", header_style)],
         [Paragraph(
