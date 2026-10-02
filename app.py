@@ -5,13 +5,13 @@ from datetime import datetime
 from pdf_engine import build_pdf_document
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
 
-st.set_page_config(page_title="MR MOBILE SA - Enterprise Portal", layout="wide")
+st.set_page_config(page_title="MR MOBILE SA — Commercial Document Engine", layout="wide")
 
-# Initialize Session State for Invoice Database and Tab Management
+# Initialize Session State Databases
 if "invoices_db" not in st.session_state:
     st.session_state.invoices_db = [
         {
-            "doc_num": "PI-2026-1002-02",
+            "doc_num": "PI-2026-1002-03",
             "client_name": "Twenty-Five Star (Pty) Ltd",
             "trading_name": "Pedros Distribution Centre DBN",
             "invoice_total": 535854.00,
@@ -23,18 +23,39 @@ if "invoices_db" not in st.session_state:
         }
     ]
 
-st.title("MR MOBILE SA — Commercial Document & Invoicing Engine")
+if "sku_database" not in st.session_state:
+    st.session_state.sku_database = {
+        "600ml Food Flask": {
+            "description": "Plain SS304 Body Configuration. Landed DDP Pinetown.",
+            "default_price": 155.32
+        },
+        "400ml Thermal Flask": {
+            "description": "Branded Pantone 176C Thermal Flask. Landed DDP Pinetown.",
+            "default_price": 125.50
+        },
+        "YogiCup Standard": {
+            "description": "Custom Molded YogiCup with Lid Specification.",
+            "default_price": 45.00
+        }
+    }
+
+# Center-aligned Header Title Styling
+st.markdown(
+    "<h1 style='text-align: center; color: #0F172A;'>MR MOBILE SA — Commercial Document & Invoicing Engine</h1>", 
+    unsafe_allow_html=True
+)
+st.markdown("---")
 
 # Multi-tab layout configuration
-tab1, tab2 = st.tabs(["📄 Document Generator", "📊 Invoice Tracking Dashboard"])
+tab1, tab2 = st.tabs(["📄 Document Generator", "📊 Enterprise Financial Tracking Dashboard"])
 
 # ==========================================
 # TAB 1: DOCUMENT GENERATOR PORTAL
 # ==========================================
 with tab1:
-    st.subheader("Create & Configure Commercial Document")
+    st.subheader("Configure & Generate Commercial Document")
     
-    # Dynamically fetch latest US$/ZAR market rate with fallback
+    # Fetch live US$/ZAR rate (Base rate without markup)
     def get_live_usd_zar_rate():
         try:
             response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
@@ -46,15 +67,14 @@ with tab1:
         return 18.25
 
     base_usd_zar = get_live_usd_zar_rate()
-    adjusted_usd_zar = base_usd_zar * 1.035  # Adding 3.5% for bank charges
 
     col_a, col_b = st.columns(2)
     with col_a:
-        doc_type = st.selectbox("Document Type", ["PRO FORMA INVOICE", "TAX INVOICE", "QUOTATION"])
+        doc_type = st.selectbox("Document Type", ["PRO FORMA TAX INVOICE", "TAX INVOICE", "QUOTATION"])
         shipping_mode = st.selectbox("Shipping Mode", ["Sea Freight", "Air Freight", "Express Courier"])
     with col_b:
         doc_date = st.date_input("Document Date", value=datetime.today())
-        doc_num = st.text_input("Document Number", value="PI-2026-1002-03")
+        doc_num = st.text_input("Document Number", value="PI-2026-1002-04")
 
     col_c, col_d = st.columns(2)
     with col_c:
@@ -62,12 +82,12 @@ with tab1:
     with col_d:
         validity = st.text_input("Validity", value="30 Days")
 
-    # Display Dynamic Exchange Rate on Screen
+    # Display Live Exchange Rate Block on Screen
     st.markdown("---")
     st.markdown(
-        f"**Live US$/ZAR Market Rate (incl. 3.5% Bank Charges):** "
-        f"<span style='color:#B91C1C; font-size:16px;'><b>R {adjusted_usd_zar:,.4f}</b></span> "
-        f"<font size=2 color='#64748B'>(Base: R {base_usd_zar:,.4f} + 3.5% Admin)</font>",
+        f"<div style='padding: 10px; background-color: #F1F5F9; border-left: 4px solid #0F172A; border-radius: 4px;'>"
+        f"<b>Live Market Exchange Rate (US$/ZAR):</b> <span style='color: #0F172A; font-size: 16px;'><b>R {base_usd_zar:,.4f}</b></span>"
+        f"</div>",
         unsafe_allow_html=True
     )
     st.markdown("---")
@@ -83,7 +103,7 @@ with tab1:
         reg_address = st.text_input("Reg Address", value="33 Aiken Street, Port Shepstone, KZN, 4240")
         del_address = st.text_input("Delivery Address", value="4-6 Suzuka Road, Westmead, Pinetown, 3608")
 
-    # Line Items
+    # Line Items & SKU Database Selection
     st.markdown("### Commercial Line-Item Specification")
     num_items = st.number_input("How many products / line items?", min_value=1, max_value=10, value=1)
 
@@ -91,13 +111,33 @@ with tab1:
     grand_excl = 0.0
     grand_incl = 0.0
 
+    existing_skus = list(st.session_state.sku_database.keys()) + ["+ Add New Custom SKU"]
+
     for i in range(int(num_items)):
         st.markdown(f"#### Item #{i+1}")
-        sku = st.text_input(f"SKU / Item Code #{i+1}", value="600ml Food Flask")
-        desc = st.text_area(f"Bespoke Description #{i+1}", value="Plain SS304 Body Configuration. Landed DDP Pinetown.")
-        qty = st.number_input(f"Quantity (Units) #{i+1}", min_value=1, value=3000)
-        unit_price = st.number_input(f"Unit Price Excl. VAT (R) #{i+1}", min_value=0.0, value=155.32, format="%.2f")
         
+        selected_sku_option = st.selectbox(f"Select SKU / Item Code #{i+1}", existing_skus, key=f"sku_select_{i}")
+        
+        if selected_sku_option == "+ Add New Custom SKU":
+            sku = st.text_input(f"New SKU Code #{i+1}", key=f"new_sku_{i}")
+            desc = st.text_area(f"Bespoke Description #{i+1}", key=f"new_desc_{i}")
+            default_p = 100.00
+        else:
+            sku = selected_sku_option
+            sku_info = st.session_state.sku_database[sku]
+            desc = st.text_area(f"Bespoke Description #{i+1}", value=sku_info["description"], key=f"desc_{i}")
+            default_p = sku_info["default_price"]
+
+        qty = st.number_input(f"Quantity (Units) #{i+1}", min_value=1, value=3000, key=f"qty_{i}")
+        unit_price = st.number_input(f"Unit Price Excl. VAT (R) #{i+1}", min_value=0.0, value=float(default_p), format="%.2f", key=f"price_{i}")
+        
+        # Save new SKUs back to database automatically
+        if sku and sku not in st.session_state.sku_database and sku != "+ Add New Custom SKU":
+            st.session_state.sku_database[sku] = {
+                "description": desc,
+                "default_price": unit_price
+            }
+
         net_subtotal = qty * unit_price
         total_incl = net_subtotal * 1.15  # 15% VAT
         
@@ -115,7 +155,7 @@ with tab1:
 
     tranche1_incl = grand_incl * 0.50
 
-    # Compile Invoice Data
+    # Compile Invoice Data Payload
     invoice_data = {
         "document_type": doc_type,
         "shipping_mode": shipping_mode,
@@ -123,7 +163,7 @@ with tab1:
         "invoice_num": doc_num,
         "due_date": due_date,
         "validity": validity,
-        "exchange_rate_display": f"R {adjusted_usd_zar:,.4f}",
+        "exchange_rate_display": f"R {base_usd_zar:,.4f}",
         "bank_details_primary": BANK_DETAILS_PRIMARY,
         "bank_details_secondary": BANK_DETAILS_SECONDARY,
         "client": {
@@ -140,7 +180,7 @@ with tab1:
         try:
             pdf_buffer = build_pdf_document(invoice_data)
             
-            # Register or update invoice in session database
+            # Register or update in dashboard database
             existing_idx = next((idx for idx, inv in enumerate(st.session_state.invoices_db) if inv["doc_num"] == doc_num), None)
             new_inv_record = {
                 "doc_num": doc_num,
@@ -179,10 +219,8 @@ with tab2:
     if not st.session_state.invoices_db:
         st.info("No invoices generated yet.")
     else:
-        # Convert to DataFrame for metrics & display
         df_invoices = pd.DataFrame(st.session_state.invoices_db)
 
-        # Metrics Overview
         total_billed = df_invoices["invoice_total"].sum()
         total_collected = df_invoices["amount_paid"].sum()
         total_outstanding = df_invoices["balance_outstanding"].sum()
@@ -243,10 +281,8 @@ with tab2:
                     "date": inv["date"]
                 })
 
-        # Save updates back to session state
         st.session_state.invoices_db = updated_db
 
-        # Summary Data Table View
         st.markdown("---")
         st.markdown("### Master Ledger Summary Table")
         display_df = pd.DataFrame(st.session_state.invoices_db)
