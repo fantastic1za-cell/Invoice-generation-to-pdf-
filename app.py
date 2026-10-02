@@ -4,7 +4,7 @@ from datetime import datetime
 import io
 
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
@@ -12,7 +12,7 @@ from reportlab.lib import colors
 st.set_page_config(page_title="MR MOBILE SA - Pro Forma Generator", page_icon="📄", layout="wide")
 
 # ---------------------------------------------------------
-# CONSTANTS & PRESETS
+# FIXED / LOCKED SUPPLIER & BANKING CONSTANTS (NON-EDITABLE)
 # ---------------------------------------------------------
 SUPPLIER_DETAILS = {
     "company": "IRESQ LA LUCIA PTY LTD",
@@ -91,10 +91,10 @@ def number_to_words_rand(amount):
     return " ".join(res) + " Rand, Inclusive of 15% Local Sales VAT"
 
 st.title("📄 Pro Forma Tax Invoice Generator")
-st.caption(f"Supplier: **{SUPPLIER_DETAILS['company']} t/a {SUPPLIER_DETAILS['trading']}** | VAT: **{SUPPLIER_DETAILS['vat_no']}** | Email: **{SUPPLIER_DETAILS['email']}**")
+st.caption(f"Supplier: **{SUPPLIER_DETAILS['company']} t/a {SUPPLIER_DETAILS['trading']}** | Locked VAT: **{SUPPLIER_DETAILS['vat_no']}** | Locked Email: **{SUPPLIER_DETAILS['email']}**")
 
 # ---------------------------------------------------------
-# 1. INVOICE META & SHIPPING
+# 1. INVOICE META & SHIPPING (DYNAMIC)
 # ---------------------------------------------------------
 st.header("1. Document Metadata")
 col1, col2, col3, col4 = st.columns(4)
@@ -106,9 +106,10 @@ with col2:
     due_date_str = st.text_input("Due Date", "Immediate (Upon Receipt)")
 with col3:
     validity_str = st.text_input("Validity", "30 Days")
-    tax_ref = st.text_input("Tax Reference / VAT", SUPPLIER_DETAILS["vat_no"])
+    # Locked display field for Tax Reference / VAT
+    st.text_input("Tax Reference / VAT (Locked)", SUPPLIER_DETAILS["vat_no"], disabled=True)
 with col4:
-    st.info(f"**Primary Acc:** {BANK_DETAILS_PRIMARY['account_number']}\n\n**Secondary Acc:** {BANK_DETAILS_SECONDARY['account_number']}")
+    st.info(f"🔒 **Primary Acc:** {BANK_DETAILS_PRIMARY['account_number']}\n\n🔒 **Secondary Acc:** {BANK_DETAILS_SECONDARY['account_number']}")
 
 st.markdown("---")
 
@@ -230,7 +231,7 @@ def generate_pdf():
     style_cell_right = ParagraphStyle('CellTextRight', parent=normal, fontName='Helvetica', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'), alignment=2)
     style_cell_right_bold = ParagraphStyle('CellTextRightBold', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#0F172A'), alignment=2)
     
-    # Supplier details table with VAT and Email included
+    # Locked Header Data
     head_data = [
         [
             Paragraph(f"<b>PRO FORMA TAX INVOICE</b><br/><font size=6.5 color='#64748B'>Official Commercial Document | SARS VAT Compliant</font>", style_title),
@@ -254,7 +255,7 @@ def generate_pdf():
     story.append(head_table)
     story.append(Spacer(1, 4))
     
-    # Client & Billing Block
+    # Client Block
     client_box_data = [
         [
             Paragraph(
@@ -280,7 +281,7 @@ def generate_pdf():
     story.append(client_table)
     story.append(Spacer(1, 4))
     
-    # Document Metadata Bar
+    # Metadata bar using locked VAT constant
     meta_data = [
         [
             Paragraph("INVOICE NO", style_meta_hdr),
@@ -292,7 +293,7 @@ def generate_pdf():
         ],
         [
             Paragraph(invoice_num, style_meta_val),
-            Paragraph(tax_ref, style_meta_val),
+            Paragraph(SUPPLIER_DETAILS["vat_no"], style_meta_val),
             Paragraph(invoice_date.strftime('%d %B %Y'), style_meta_val),
             Paragraph(shipping_mode, style_meta_val),
             Paragraph(due_date_str, style_meta_val),
@@ -310,7 +311,7 @@ def generate_pdf():
     story.append(meta_table)
     story.append(Spacer(1, 6))
     
-    # Commercial Line Items
+    # Products Table
     story.append(Paragraph(f"<b>1. COMMERCIAL LINE-ITEM SPECIFICATION ({shipping_mode.upper()} MOQ RUN)</b>", style_subtitle))
     story.append(Spacer(1, 2))
     
@@ -356,7 +357,7 @@ def generate_pdf():
     story.append(item_table)
     story.append(Spacer(1, 6))
     
-    # Milestone Schedule
+    # Milestone Payment Schedule
     story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", style_subtitle))
     story.append(Spacer(1, 2))
     
@@ -421,7 +422,7 @@ def generate_pdf():
     ))
     story.append(Spacer(1, 4))
     
-    # DUAL BANKING DETAILS TABLE (Side-by-side to prevent page overflow and overlapping)
+    # HARDCODED / LOCKED DUAL BANKING DETAILS TABLE
     bank_hdr_style = ParagraphStyle('BH', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=1)
     bank_body_style = ParagraphStyle('BC', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8.5, textColor=colors.HexColor('#1E293B'))
     
