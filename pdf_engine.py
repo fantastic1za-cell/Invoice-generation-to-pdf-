@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 22:35:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (FAILSAFE VAR RESOLUTION)
+# TIMESTAMP: 2026-10-02 22:42:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (FIXED TABLE MATRIX ITERATION & FAILSAFE DEFAULTS)
 # ==============================================================================
 
 import os
@@ -14,6 +14,10 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 
 class NumberedCanvas(canvas.Canvas):
+    """
+    Custom canvas that draws a centered 150px whitewashed watermark logo 
+    on the page background, with safe fallback handling.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pages = []
@@ -73,7 +77,7 @@ def build_pdf_document(data):
     body_bold = ParagraphStyle('TableBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=PRIMARY_COLOR)
     header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.white)
 
-    # Header Logo & Supplier Details
+    # 1. Header Logo (Centered 45px, 5px space below) & Supplier Details
     logo_path = "mmsalogo.png.jpg"
     if os.path.exists(logo_path):
         logo_img = Image(logo_path, width=45, height=45)
@@ -81,7 +85,6 @@ def build_pdf_document(data):
         story.append(logo_img)
         story.append(Spacer(1, 5))
 
-    # Safely pull supplier details from payload, or fallback safely
     supplier = data.get('supplier_details', {
         "entity": "IRESQ LA LUCIA PTY LTD",
         "trading": "T/A MR MOBILE SA",
@@ -115,7 +118,7 @@ def build_pdf_document(data):
     story.append(header_table)
     story.append(Spacer(1, 10))
 
-    # Client Details
+    # 2. Client Details
     client = data.get('client', {})
     client_data = [
         [Paragraph("<b>CLIENT & BILLING DETAILS</b>", header_style)],
@@ -133,7 +136,7 @@ def build_pdf_document(data):
     story.append(client_table)
     story.append(Spacer(1, 10))
 
-    # Meta Table
+    # 3. Meta Details Table
     meta_headers = [Paragraph("INVOICE NO", header_style), Paragraph("TAX REFERENCE", header_style), Paragraph("DATE", header_style), Paragraph("SHIPPING", header_style), Paragraph("DUE DATE", header_style), Paragraph("VALIDITY", header_style), Paragraph("US$/ZAR FX", header_style)]
     meta_values = [
         Paragraph(str(data.get('invoice_num', '')), body_bold),
@@ -149,7 +152,7 @@ def build_pdf_document(data):
     story.append(meta_table)
     story.append(Spacer(1, 12))
 
-    # Line Items
+    # 4. Commercial Line-Item Specification
     story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", body_bold))
     story.append(Spacer(1, 4))
 
@@ -183,7 +186,7 @@ def build_pdf_document(data):
     story.append(line_table)
     story.append(Spacer(1, 12))
 
-    # Payment Schedule
+    # 5. Contractual Milestone Payment Schedule
     tranche1 = grand_incl * 0.50
     tranche2 = grand_incl * 0.50
 
@@ -207,7 +210,7 @@ def build_pdf_document(data):
     story.append(due_banner_table)
     story.append(Spacer(1, 10))
 
-    # Payment & FX Terms
+    # 6. Payment & Foreign Exchange Terms
     fx_terms_text = (
         f"<b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit "
         f"(Tranche 1: R {tranche1:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. "
@@ -219,10 +222,22 @@ def build_pdf_document(data):
     story.append(fx_table)
     story.append(Spacer(1, 10))
 
-    # Banking Details - FAILSFAFE RESOLUTION
-    # This prevents the NameError by safely defaulting to empty dictionaries if the payload is missing them.
-    bank_p = data.get('bank_details_primary', {})
-    bank_s = data.get('bank_details_secondary', {})
+    # 7. Banking Details (Failsafe Lookups)
+    bank_p = data.get('bank_details_primary', {
+        "account_name": "IRESQ LA LUCIA PTY LTD",
+        "bank_name": "First National Bank (FNB)",
+        "account_type": "First Business Zero",
+        "account_number": "63152083390",
+        "branch_code": "256505 (Melville)"
+    })
+    bank_s = data.get('bank_details_secondary', {
+        "account_name": "IRESQ LA LUCIA PTY LTD T/A MMSA FBA",
+        "bank_name": "First National Bank (FNB)",
+        "account_type": "Franchise Business Account",
+        "account_number": "63230107658",
+        "branch_code": "256505",
+        "swift": "FIRNZAJJ"
+    })
 
     bank_headers = [Paragraph("OFFICIAL CORPORATE ACCOUNT (FNB 1)", header_style), Paragraph("FRANCHISE BUSINESS ACCOUNT (FNB 2)", header_style)]
     bank_rows = [
@@ -237,10 +252,10 @@ def build_pdf_document(data):
     story.append(bank_table)
     story.append(Spacer(1, 10))
 
-    # Statutory Compliance & Logistical Clauses
+    # 8. Statutory Compliance & Logistical Clauses (Proper 2D Matrix Structure)
     compliance_content = [
-        Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", header_style),
-        Paragraph(
+        [Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", header_style)],
+        [Paragraph(
             "• <b>Raw Material Securement:</b> Production planning, custom material blending, and machine line configurations will trigger "
             "automatically upon formal reflection of the 50% Tranche 1 deposit inside our corporate banking treasury. The 50% initial startup "
             "pricing is absorbed and fixed as billed.<br/>"
@@ -248,7 +263,7 @@ def build_pdf_document(data):
             "verification prior to container loading in China. The final balance payment will be calculated based on the prevailing foreign "
             "exchange (FX) rate at the time of transaction settlement.",
             body_style
-        )
+        )]
     ]
     compliance_table = Table(compliance_content, colWidths=[522])
     compliance_table.setStyle(TableStyle([('BACKGROUND', (0,0), (0,0), SECONDARY_COLOR), ('BACKGROUND', (0,1), (0,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('PADDING', (0,0), (-1,-1), 6)]))
