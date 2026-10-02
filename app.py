@@ -1,282 +1,247 @@
 import streamlit as st
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT, TA_CENTER
-import io
-import os
-import json
+import pandas as pd
 from datetime import datetime
+import io
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
-# --- SEQUENTIAL INVOICE NUMBER GENERATOR ---
-COUNTER_FILE = "invoice_counter.json"
+# Set page setup
+st.set_page_config(page_title="Pro Forma Invoice Generator", page_icon="📄", layout="wide")
 
-def get_next_invoice_number():
-    today_date = datetime.now().strftime("%Y-%m-%d")
-    date_code = datetime.now().strftime("%Y-%m%d") # Format: YYYY-MMDD
+# Pre-stored Clients Database
+PRESET_CLIENTS = {
+    "Twenty-Five Star (Pty) Ltd (Pedros DBN)": {
+        "client_name": "Twenty-Five Star (Pty) Ltd",
+        "trading_name": "Pedros Distribution Centre DBN",
+        "reg_vat": "Co. Reg: 2022/686760/07 | VAT: 4690317583",
+        "reg_address": "33 Aiken Street, Port Shepstone, KZN, 4240",
+        "del_address": "4-6 Suzuka Road, Westmead, Pinetown, 3608"
+    }
+}
+
+st.title("📄 Pro Forma Invoice Generator")
+
+# ---------------------------------------------------------
+# 1. INVOICE HEADER
+# ---------------------------------------------------------
+st.header("1. General Details")
+col1, col2 = st.columns(2)
+with col1:
+    invoice_date = st.date_input("Invoice Date", datetime.today())
+with col2:
+    invoice_num = st.text_input("Invoice Number", f"PI-{invoice_date.strftime('%Y%m%d')}-001")
+
+st.markdown("---")
+
+# ---------------------------------------------------------
+# 2. CLIENT & DELIVERY DETAILS
+# ---------------------------------------------------------
+st.header("2. Client & Delivery Details")
+
+client_option = st.radio("Select Client Mode:", ["Existing Client", "New Client"], horizontal=True)
+
+if client_option == "Existing Client":
+    selected_preset = st.selectbox("Choose Client Preset:", list(PRESET_CLIENTS.keys()))
+    preset_data = PRESET_CLIENTS[selected_preset]
     
-    data = {"date": today_date, "count": 0}
-    if os.path.exists(COUNTER_FILE):
-        try:
-            with open(COUNTER_FILE, "r") as f:
-                data = json.load(f)
-        except Exception:
-            pass
+    client_name = st.text_input("Client Name", value=preset_data["client_name"])
+    trading_name = st.text_input("Trading Name", value=preset_data["trading_name"])
+    reg_vat = st.text_input("Co. Reg & VAT", value=preset_data["reg_vat"])
+    reg_address = st.text_area("Registered Address", value=preset_data["reg_address"], height=80)
+    del_address = st.text_area("Delivery Address", value=preset_data["del_address"], height=80)
 
-    # If same day, increment count; if new day, reset to 1
-    if data.get("date") == today_date:
-        data["count"] += 1
-    else:
-        data["date"] = today_date
-        data["count"] = 1
+else:
+    client_name = st.text_input("Client Name", placeholder="e.g. Acme Corp (Pty) Ltd")
+    trading_name = st.text_input("Trading Name", placeholder="e.g. Acme Store Sandton")
+    reg_vat = st.text_input("Co. Reg & VAT", placeholder="Co. Reg: 2023/123456/07 | VAT: 4123456789")
+    reg_address = st.text_area("Registered Address", placeholder="Street, Suburb, City, Code", height=80)
+    del_address = st.text_area("Delivery Address", placeholder="Delivery Street, Suburb, City, Code", height=80)
 
-    with open(COUNTER_FILE, "w") as f:
-        json.dump(data, f)
+st.markdown("---")
 
-    seq_str = f"{data['count']:03d}"
-    return f"PI-{date_code}-{seq_str}"
+# ---------------------------------------------------------
+# 3. PRODUCT SPECIFICATION & PRICING
+# ---------------------------------------------------------
+st.header("3. Product Specification & Line Items")
 
-# --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="Pro Forma Invoice Generator", layout="centered")
+num_products = st.number_input("How many products / line items?", min_value=1, max_value=20, value=1, step=1)
 
-st.title("📄 Commercial Pro Forma Generator")
-st.caption("Auto-calculates VAT, 50% milestone deposits, and tracks sequential daily invoice numbers.")
+products = []
 
-# Generate initial sequential number for display
-if "current_inv_no" not in st.session_state:
-    st.session_state["current_inv_no"] = get_next_invoice_number()
-
-with st.form("invoice_form"):
-    st.subheader("1. Invoice Identification")
-    inv_no = st.text_input("Invoice Number (Auto-Generated)", value=st.session_state["current_inv_no"])
-    inv_date = st.text_input("Invoice Date", value=datetime.now().strftime("%d %B %Y"))
+for i in range(int(num_products)):
+    st.subheader(f"Product #{i+1}")
+    p_col1, p_col2 = st.columns([1, 3])
+    with p_col1:
+        sku = st.text_input(f"SKU Code #{i+1}", value=f"SKU-00{i+1}", key=f"sku_{i}")
+    with p_col2:
+        desc = st.text_input(f"Full Product Description #{i+1}", value="600ml Food Flask - Plain SS304 Body Configuration" if i == 0 else "", key=f"desc_{i}")
     
-    st.subheader("2. Client & Delivery Details")
-    client_name = st.text_input("Client Name", "Twenty-Five Star (Pty) Ltd")
-    client_trading = st.text_input("Trading Name", "Pedros Distribution Centre DBN")
-    client_vat = st.text_input("Co. Reg & VAT", "Co. Reg: 2022/686760/07 | VAT: 4690317583")
-    reg_addr = st.text_input("Registered Address", "33 Aiken Street, Port Shepstone, KZN, 4240")
-    del_addr = st.text_input("Delivery Address", "4-6 Suzuka Road, Westmead, Pinetown, 3608")
+    q_col1, q_col2 = st.columns(2)
+    with q_col1:
+        qty = st.number_input(f"Quantity #{i+1}", min_value=1, value=1000 if i == 0 else 1, step=1, key=f"qty_{i}")
+    with q_col2:
+        unit_price = st.number_input(f"Unit Price Excl. VAT (R) #{i+1}", min_value=0.0, value=155.32 if i == 0 else 0.0, step=0.01, format="%.2f", key=f"price_{i}")
     
-    st.subheader("3. Product Specification & Pricing")
-    prod_title = st.text_input("Product Description", "600ml Food Flask")
-    prod_subtext = st.text_input("Line Specification", "Plain SS304 Body Configuration. Landed DDP Pinetown.")
-    col1, col2 = st.columns(2)
-    with col1:
-        qty = st.number_input("Quantity", value=3000, step=100)
-    with col2:
-        unit_price = st.number_input("Unit Price Excl. VAT (Rand)", value=155.32, step=1.0)
+    # Calculate line financials
+    subtotal_line = qty * unit_price
+    vat_line = subtotal_line * 0.15
+    total_line = subtotal_line + vat_line
     
-    submitted = st.form_submit_button("Generate & Download PDF")
+    products.append({
+        "SKU": sku,
+        "Description": desc,
+        "Qty": qty,
+        "Unit Price (Excl. VAT)": unit_price,
+        "Total Excl. VAT": subtotal_line,
+        "VAT (15%)": vat_line,
+        "Total Incl. VAT": total_line
+    })
+    st.divider()
 
-if submitted:
-    # Math Calculations
-    net_total = qty * unit_price
-    grand_total = net_total * 1.15
-    tranche_net = net_total * 0.5
-    tranche_grand = grand_total * 0.5
-    
-    # PDF Document Construction
+# ---------------------------------------------------------
+# 4. ONSCREEN LIVE SUMMARY
+# ---------------------------------------------------------
+st.header("4. Live Invoicing Summary")
+
+# Create dataframe for summary table
+df_summary = pd.DataFrame(products)
+
+# Format currency columns for display
+df_display = df_summary.copy()
+df_display["Unit Price (Excl. VAT)"] = df_display["Unit Price (Excl. VAT)"].apply(lambda x: f"R {x:,.2f}")
+df_display["Total Excl. VAT"] = df_display["Total Excl. VAT"].apply(lambda x: f"R {x:,.2f}")
+df_display["VAT (15%)"] = df_display["VAT (15%)"].apply(lambda x: f"R {x:,.2f}")
+df_display["Total Incl. VAT"] = df_display["Total Incl. VAT"].apply(lambda x: f"R {x:,.2f}")
+
+st.dataframe(df_display, use_container_width=True)
+
+# Calculate Overall Financial Totals
+grand_subtotal = sum(p["Total Excl. VAT"] for p in products)
+grand_vat = sum(p["VAT (15%)"] for p in products)
+grand_total = sum(p["Total Incl. VAT"] for p in products)
+deposit_due = grand_total * 0.50
+
+m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+m_col1.metric("Subtotal (Excl. VAT)", f"R {grand_subtotal:,.2f}")
+m_col2.metric("Total VAT (15%)", f"R {grand_vat:,.2f}")
+m_col3.metric("Grand Total (Incl. VAT)", f"R {grand_total:,.2f}")
+m_col4.metric("50% Deposit Due", f"R {deposit_due:,.2f}")
+
+st.markdown("---")
+
+# ---------------------------------------------------------
+# 5. PDF GENERATION FUNCTION
+# ---------------------------------------------------------
+def generate_pdf():
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=30,
-        rightMargin=30,
-        topMargin=30,
-        bottomMargin=30
-    )
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    story = []
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('Title', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11, leading=13)
-    sub_title = ParagraphStyle('SubTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7, leading=9, textColor=colors.HexColor("#555555"))
-    heading_style = ParagraphStyle('Heading', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=10.5)
-    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontName='Helvetica', fontSize=7.2, leading=9)
-    body_bold = ParagraphStyle('BodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.2, leading=9)
-    right_bold = ParagraphStyle('RightBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.2, leading=9, alignment=TA_RIGHT)
-    right_normal = ParagraphStyle('RightNormal', parent=styles['Normal'], fontName='Helvetica', fontSize=7.2, leading=9, alignment=TA_RIGHT)
-    center_bold = ParagraphStyle('CenterBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.2, leading=9, alignment=TA_CENTER)
-
-    story = [
-        Paragraph("PRO FORMA TAX INVOICE", title_style),
-        Paragraph("Official Commercial Document | SARS VAT Compliant", sub_title),
-        Spacer(1, 6)
-    ]
+    normal_style = styles['Normal']
     
-    # Header Information
-    left_header = f"""
-    <b>SUPPLIER DETAILS</b><br/>
-    IRESQ LA LUCIA PTY LTD T/A MR MOBILE SA<br/>
-    58 Paarlshoop Road, Homestead Park, 2092 JHB<br/>
-    Contact: 068 710 1939 / 082 786 7712<br/><br/>
-    <b>CLIENT & BILLING DETAILS</b><br/>
-    {client_name}<br/>
-    Trading Name: {client_trading}<br/>
-    {client_vat}<br/>
-    Reg Address: {reg_addr}<br/>
-    Delivery Addr: {del_addr}
-    """
-    
-    right_header = f"""
-    <b>INVOICE NO:</b> {inv_no}<br/>
-    <b>TAX REFERENCE:</b> 4960281899<br/>
-    <b>DATE:</b> {inv_date}<br/>
-    <b>SHIPPING MODE:</b> Sea Freight<br/>
-    <b>DUE DATE:</b> Immediate (Upon Receipt)<br/>
-    <b>VALIDITY:</b> 30 Days
-    """
-    
-    header_table = Table([[Paragraph(left_header, body_style), Paragraph(right_header, body_style)]], colWidths=[330, 205])
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6)
-    ]))
-    story.extend([header_table, Spacer(1, 4)])
-    
-    # 1. Commercial Line Item
-    story.extend([Paragraph("1. COMMERCIAL LINE-ITEM SPECIFICATION (SEA FREIGHT MOQ RUN)", heading_style), Spacer(1, 3)])
-    item_rows = [
-        [
-            Paragraph("<b>Bespoke Product Description</b>", body_style),
-            Paragraph("<b>Qty</b>", center_bold),
-            Paragraph("<b>Unit Price<br/>(Excl. VAT)</b>", right_bold),
-            Paragraph("<b>Net Subtotal<br/>(Excl. VAT)</b>", right_bold),
-            Paragraph("<b>Total Price<br/>(Incl. VAT)</b>", right_bold)
-        ],
-        [
-            Paragraph(f"<b>{prod_title}</b><br/><font color='#555555'>{prod_subtext}</font>", body_style),
-            Paragraph(f"{qty:,}", center_bold),
-            Paragraph(f"R {unit_price:,.2f}", right_normal),
-            Paragraph(f"R {net_total:,.2f}", right_normal),
-            Paragraph(f"R {grand_total:,.2f}", right_bold)
-        ],
-        [
-            Paragraph("<b>Combined Program Totals (MOQ Run)</b>", body_style),
-            Paragraph(f"<b>{qty:,}</b>", center_bold),
-            Paragraph("", right_normal),
-            Paragraph(f"<b>R {net_total:,.2f}</b>", right_bold),
-            Paragraph(f"<b>R {grand_total:,.2f}</b>", right_bold)
-        ]
-    ]
-    t1 = Table(item_rows, colWidths=[225, 45, 85, 90, 90])
-    t1.setStyle(TableStyle([
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CCCCCC")),
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#F2F2F2")),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4)
-    ]))
-    story.extend([t1, Spacer(1, 6)])
-
-    # 2. Milestones Schedule
-    story.extend([Paragraph("2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE", heading_style), Spacer(1, 3)])
-    milestone_rows = [
-        [
-            Paragraph("<b>Payment Milestone Tranche</b>", body_style),
-            Paragraph("<b>Share %</b>", center_bold),
-            Paragraph("<b>Net Value<br/>(Excl. VAT)</b>", right_bold),
-            Paragraph("<b>Grand Total<br/>(Incl. VAT)</b>", right_bold)
-        ],
-        [
-            Paragraph("<b>TRANCHE 1: STARTUP DEPOSIT</b><br/><font color='#555555'>Required to secure materials & commence factory assembly runs.<br/>Pricing locked & absorbed as billed.</font>", body_style),
-            Paragraph("50%", center_bold),
-            Paragraph(f"R {tranche_net:,.2f}", right_normal),
-            Paragraph(f"R {tranche_grand:,.2f}", right_bold)
-        ],
-        [
-            Paragraph("<b>TRANCHE 2: PORT RELEASE BALANCE</b><br/><font color='#555555'>Payable post-inspection, prior to loading in China. Balance subject to prevailing exchange rate at time of loading.</font>", body_style),
-            Paragraph("50%", center_bold),
-            Paragraph(f"R {tranche_net:,.2f}*", right_normal),
-            Paragraph(f"R {tranche_grand:,.2f}*", right_bold)
-        ]
-    ]
-    t2 = Table(milestone_rows, colWidths=[235, 50, 110, 140])
-    t2.setStyle(TableStyle([
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CCCCCC")),
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#F2F2F2")),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4)
-    ]))
-    story.extend([t2, Spacer(1, 6)])
-
-    # Amount Due Box
-    due_box_data = [
-        [
-            Paragraph("<b>TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT):</b>", body_style),
-            Paragraph(f"<b>R {tranche_grand:,.2f}</b>", ParagraphStyle('DueRight', parent=right_bold, fontSize=10))
-        ],
-        [
-            Paragraph(f"<font size='6.2' color='#444444'><b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit (Tranche 1: R {tranche_grand:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) rate at the time of final port release payment.</font>", body_style),
-            Paragraph("", body_style)
-        ]
-    ]
-    t_due = Table(due_box_data, colWidths=[395, 140])
-    t_due.setStyle(TableStyle([
-        ('SPAN', (0, 1), (1, 1)),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CCCCCC")),
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FAFAFA")),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4)
-    ]))
-    story.extend([t_due, Spacer(1, 6)])
-
-    # Banking Block
-    story.extend([Paragraph("<b>FNB CORPORATE BANKING DETAILS (OFFICIAL ACCOUNT)</b>", heading_style), Spacer(1, 3)])
-    t_bank = Table([
-        [Paragraph("<b>Bank Name</b>", body_bold), Paragraph("<b>Account Type</b>", body_bold), Paragraph("<b>Account Number</b>", body_bold), Paragraph("<b>Branch Code</b>", body_bold)],
-        [Paragraph("First National Bank", body_style), Paragraph("First Business Zero", body_style), Paragraph("63152083390", body_style), Paragraph("256505 (Melville)", body_style)]
-    ], colWidths=[133, 133, 133, 136])
-    t_bank.setStyle(TableStyle([
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CCCCCC")),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 3),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 3)
-    ]))
-    story.extend([t_bank, Spacer(1, 6)])
-
-    # Clauses
-    story.extend([Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", heading_style), Spacer(1, 3)])
-    clauses = [
-        "<b>Raw Material Securement:</b> Production planning, custom material blending, and machine line configurations will trigger automatically upon formal reflection of the 50% Tranche 1 deposit inside our corporate banking treasury.",
-        "<b>Origin Loading Protection & FX Adjustment:</b> The final 50% balance tranche is contractually tied to origin quality control (QC) verification prior to container loading in China."
-    ]
-    for c in clauses:
-        story.extend([Paragraph(f"• {c}", ParagraphStyle('Clause', parent=body_style, fontSize=6.5, leading=8.2)), Spacer(1, 2)])
-        
-    story.extend([
-        Spacer(1, 6),
-        Table([
-            [
-                Paragraph(f"Iresq La Lucia Pty Ltd t/a Mr Mobile SA | Pro Forma Invoice {inv_no}", ParagraphStyle('F1', parent=body_style, fontSize=6.5, textColor=colors.HexColor("#666666"))),
-                Paragraph("Page 1 of 1", ParagraphStyle('F2', parent=right_normal, fontSize=6.5, textColor=colors.HexColor("#666666")))
-            ]
-        ], colWidths=[435, 100], style=[('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('LEFTPADDING', (0,0), (-1,-1), 0), ('RIGHTPADDING', (0,0), (-1,-1), 0)])
-    ])
-
-    doc.build(story)
-    buffer.seek(0)
-    pdf_data = buffer.getvalue()
-    
-    # Save a local server copy automatically
-    filename = f"{inv_no}.pdf"
-    with open(filename, "wb") as f:
-        f.write(pdf_data)
-
-    st.success(f"Invoice {inv_no} Created & Saved!")
-    
-    # Instant device download button
-    st.download_button(
-        label=f"⬇️ Tap to Download {filename}",
-        data=pdf_data,
-        file_name=filename,
-        mime="application/pdf"
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=normal_style,
+        fontName='Helvetica-Bold',
+        fontSize=20,
+        leading=24,
+        textColor=colors.HexColor('#1E293B')
     )
     
-    # Update next sequential invoice number for the next submission
-    st.session_state["current_inv_no"] = get_next_invoice_number()
+    meta_style = ParagraphStyle(
+        'MetaText',
+        parent=normal_style,
+        fontName='Helvetica',
+        fontSize=9,
+        leading=12,
+        alignment=2,
+        textColor=colors.HexColor('#475569')
+    )
+    
+    header_table_data = [
+        [Paragraph("PRO FORMA TAX INVOICE", title_style), 
+         Paragraph(f"<b>Invoice No:</b> {invoice_num}<br/><b>Date:</b> {invoice_date.strftime('%d %B %Y')}", meta_style)]
+    ]
+    header_table = Table(header_table_data, colWidths=[300, 222])
+    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+    story.append(header_table)
+    story.append(Spacer(1, 15))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#CBD5E1'), spaceAfter=15))
+    
+    # Client details block
+    client_p = Paragraph(
+        f"<b>BILL & SHIP TO:</b><br/>"
+        f"<b>{client_name}</b><br/>"
+        f"Trading as: {trading_name}<br/>"
+        f"{reg_vat}<br/>"
+        f"<b>Reg Address:</b> {reg_address}<br/>"
+        f"<b>Delivery Address:</b> {del_address}",
+        normal_style
+    )
+    story.append(client_p)
+    story.append(Spacer(1, 15))
+    
+    # Products Table
+    table_data = [["SKU", "Description", "Qty", "Unit Price (Excl)", "Total Excl", "VAT (15%)", "Total Incl"]]
+    for p in products:
+        table_data.append([
+            p["SKU"],
+            Paragraph(p["Description"], normal_style),
+            str(p["Qty"]),
+            f"R {p['Unit Price (Excl. VAT)']:,.2f}",
+            f"R {p['Total Excl. VAT']:,.2f}",
+            f"R {p['VAT (15%)']:,.2f}",
+            f"R {p['Total Incl. VAT']:,.2f}"
+        ])
+        
+    p_table = Table(table_data, colWidths=[65, 140, 40, 75, 70, 60, 72])
+    p_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 8),
+        ('ALIGN', (2,0), (-1,-1), 'RIGHT'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(p_table)
+    story.append(Spacer(1, 15))
+    
+    # Financial Totals Summary Block
+    totals_data = [
+        ["Subtotal (Excl. VAT):", f"R {grand_subtotal:,.2f}"],
+        ["Total VAT (15%):", f"R {grand_vat:,.2f}"],
+        ["Grand Total (Incl. VAT):", f"R {grand_total:,.2f}"],
+        ["50% Deposit Payable:", f"R {deposit_due:,.2f}"]
+    ]
+    t_table = Table(totals_data, colWidths=[150, 100])
+    t_table.setStyle(TableStyle([
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
+        ('TEXTCOLOR', (0,2), (1,2), colors.HexColor('#1E3A8A')),
+        ('TEXTCOLOR', (0,3), (1,3), colors.HexColor('#B91C1C')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('BACKGROUND', (0,3), (1,3), colors.HexColor('#FEF2F2')),
+    ]))
+    
+    # Align totals box to right
+    wrapper_table = Table([["", t_table]], colWidths=[272, 250])
+    story.append(wrapper_table)
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 
+# Download button
+pdf_data = generate_pdf()
+st.download_button(
+    label="📥 Download Pro Forma PDF",
+    data=pdf_data,
+    file_name=f"Invoice_{invoice_num}_{client_name.replace(' ', '_')}.pdf",
+    mime="application/pdf"
+)
