@@ -1,5 +1,5 @@
 """
-ReportLab PDF Generation Engine with Dual Banking Details and Highlighted Exchange Rate Display.
+ReportLab PDF Generation Engine with Centered Watermark, Bold Exchange Rate Block, and Dual Banking.
 """
 import io
 import os
@@ -16,6 +16,23 @@ from config import SUPPLIER_DETAILS
 from helpers import number_to_words_rand
 
 logger = logging.getLogger("DocumentGenerator")
+
+def draw_watermark(canvas, doc):
+    """Draws a subtle whitewashed logo watermark centered on the page canvas."""
+    canvas.saveState()
+    logo_path = "logo.png"
+    if os.path.exists(logo_path):
+        try:
+            # Center of A4 is width=595.27, height=841.89
+            img_width = 250
+            img_height = 120
+            x = (595.27 - img_width) / 2
+            y = (841.89 - img_height) / 2
+            canvas.setFillAlpha(0.12)  # Light whitewash transparency
+            canvas.drawImage(logo_path, x, y, width=img_width, height=img_height, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+    canvas.restoreState()
 
 def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool = True) -> io.BytesIO:
     buffer = io.BytesIO()
@@ -36,7 +53,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     styles = getSampleStyleSheet()
     normal = styles['Normal']
     
-    doc_type = invoice_data.get("document_type", "PRO FORMA INVOICE")
+    doc_type = invoice_data.get("document_type", "PRO FORMA TAX INVOICE")
     
     style_title = ParagraphStyle('DocTitle', parent=normal, fontName='Helvetica-Bold', fontSize=12, leading=14, textColor=colors.HexColor('#0F172A'))
     style_supplier = ParagraphStyle('SuppText', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8, textColor=colors.HexColor('#1E293B'))
@@ -48,12 +65,12 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     style_cell_right = ParagraphStyle('CellTextRight', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=2)
     style_cell_right_bold = ParagraphStyle('CellTextRightBold', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=2)
 
-    # 1. Header with Logo
+    # 1. Header with Centered Logo positioning & Supplier Details
     logo_path = "logo.png"
     if os.path.exists(logo_path):
         try:
-            logo_flowable = Image(logo_path, width=65, height=32)
-            logo_flowable.hAlign = 'LEFT'
+            logo_flowable = Image(logo_path, width=75, height=36)
+            logo_flowable.hAlign = 'CENTER'
         except Exception:
             logo_flowable = Paragraph("<b>MR MOBILE SA</b>", style_title)
     else:
@@ -75,14 +92,14 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
             )
         ]
     ]
-    head_table = Table(head_data, colWidths=[75, 205, 267])
+    head_table = Table(head_data, colWidths=[80, 200, 267])
     head_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'), 
-        ('ALIGN', (0,0), (0,0), 'LEFT'),
+        ('ALIGN', (0,0), (0,0), 'CENTER'),
         ('ALIGN', (2,0), (2,0), 'RIGHT')
     ]))
     story.append(head_table)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 4))
 
     # 2. Client Details
     client = invoice_data.get("client", {})
@@ -107,14 +124,14 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(client_table)
     story.append(Spacer(1, 3))
 
-    # 3. Meta Data Table (Including Exchange Rate Display)
-    ex_rate_display = invoice_data.get("exchange_rate_display", "N/A")
+    # 3. Meta Data Table (Including Live US$/ZAR Exchange Rate Block)
+    ex_rate_display = invoice_data.get("exchange_rate_display", "R 18.25")
     meta_data = [
         [
-            Paragraph(f"{doc_type} NO", style_meta_hdr),
+            Paragraph("INVOICE NO", style_meta_hdr),
             Paragraph("TAX REFERENCE", style_meta_hdr),
             Paragraph("DATE", style_meta_hdr),
-            Paragraph("US$/ZAR RATE (INCL. 3.5%)", style_meta_hdr),
+            Paragraph("US$/ZAR MARKET RATE", style_meta_hdr),
             Paragraph("VALIDITY", style_meta_hdr)
         ],
         [
@@ -224,7 +241,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(m_table)
     story.append(Spacer(1, 3))
 
-    # 6. Deposit Highlight Box
+    # 6. Deposit Highlight Box with Payment & FX Terms
     words_str = number_to_words_rand(tranche1_incl)
     deposit_box_data = [[
         Paragraph(
@@ -245,7 +262,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(dep_table)
     story.append(Spacer(1, 3))
 
-    # 7. Dual Banking Info (Both Primary and Secondary displayed simultaneously)
+    # 7. Dual Banking Info
     b1 = invoice_data.get("bank_details_primary", {})
     b2 = invoice_data.get("bank_details_secondary", {})
 
@@ -314,7 +331,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(terms_table)
 
     try:
-        doc.build(story)
+        doc.build(story, onFirstPage=draw_watermark, onLaterPages=draw_watermark)
     except Exception as build_error:
         logger.error(f"Single-page PDF rendering failed: {build_error}. Retrying without single-page enforcement.")
         if enforce_single_page:
