@@ -1,14 +1,13 @@
 # ==============================================================================
 # SCRIPT NAME: app.py
-# TIMESTAMP: 2026-10-02 22:55:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (IOS DIRECT SAVE PROMPT VERIFIED)
+# TIMESTAMP: 2026-10-02 23:06:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (NATIVE IOS FILE SAVE / DRIVE DOWNLOAD MODAL)
 # ==============================================================================
 
 import streamlit as st
 import requests
 import pandas as pd
 import math
-import base64
 from datetime import datetime
 from pdf_engine import build_pdf_document
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
@@ -63,7 +62,7 @@ if "sku_database" not in st.session_state:
         }
     }
 
-# Header Branding
+# Application Header & Branding
 st.markdown(
     "<h1 style='text-align: center; color: #FFFFFF;'>MR MOBILE SA — Commercial Document & Invoicing Engine</h1>", 
     unsafe_allow_html=True
@@ -118,7 +117,7 @@ with tab1:
     )
     st.markdown("---")
 
-    # Client Selection & Add Client Toggle
+    # Client Selection & Separate Add Client Toggle
     col_cl_head1, col_cl_head2 = st.columns([3, 1])
     with col_cl_head1:
         st.markdown("### Client & Billing Details")
@@ -248,31 +247,15 @@ with tab1:
 
             st.success("PDF generated successfully and recorded in dashboard!")
             
-            # HTML Direct Save Trigger (Prevents iOS fullscreen preview hijacking)
-            b64_pdf = base64.b64encode(pdf_buffer.getvalue()).decode()
-            download_html = f"""
-                <div style="margin-top: 15px; margin-bottom: 15px;">
-                    <a href="data:application/pdf;base64,{b64_pdf}" 
-                       download="{dynamic_doc_num}.pdf" 
-                       target="_blank" 
-                       rel="noopener noreferrer"
-                       style="
-                            background-color: #0284C7;
-                            color: white;
-                            padding: 14px 20px;
-                            text-align: center;
-                            text-decoration: none;
-                            display: block;
-                            font-size: 16px;
-                            font-weight: bold;
-                            border-radius: 6px;
-                            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
-                       ">
-                       📥 Tap to Save {dynamic_doc_num}.pdf directly to Device
-                    </a>
-                </div>
-            """
-            st.markdown(download_html, unsafe_allow_html=True)
+            # Using st.download_button with mime="application/octet-stream" forces mobile OS
+            # to pop the native Save prompt (Files / Google Drive / OneDrive) instead of opening inline preview.
+            st.download_button(
+                label=f"💾 Save {dynamic_doc_num}.pdf to Files / Google Drive / OneDrive",
+                data=pdf_buffer.getvalue(),
+                file_name=f"{dynamic_doc_num}.pdf",
+                mime="application/octet-stream",
+                type="primary"
+            )
 
         except Exception as e:
             st.error(f"Error generating PDF: {e}")
