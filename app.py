@@ -1,18 +1,19 @@
 # ==============================================================================
 # SCRIPT NAME: app.py
-# TIMESTAMP: 2026-10-02 22:28:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (FIXED CONFIG IMPORTS & SEPARATE ADD CLIENT)
+# TIMESTAMP: 2026-10-02 22:55:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (IOS DIRECT SAVE PROMPT VERIFIED)
 # ==============================================================================
 
 import streamlit as st
 import requests
 import pandas as pd
 import math
+import base64
 from datetime import datetime
 from pdf_engine import build_pdf_document
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
 
-# 1. Page Configuration (Must be the first Streamlit command)
+# 1. Page Configuration
 st.set_page_config(
     page_title="Mr Mobile SA - Invoice Generator",
     page_icon="mmsalogo.png.jpg",
@@ -62,7 +63,7 @@ if "sku_database" not in st.session_state:
         }
     }
 
-# 2. Application Header & Branding
+# Header Branding
 st.markdown(
     "<h1 style='text-align: center; color: #FFFFFF;'>MR MOBILE SA — Commercial Document & Invoicing Engine</h1>", 
     unsafe_allow_html=True
@@ -96,7 +97,7 @@ with tab1:
         doc_type = st.selectbox("Document Type", ["PRO FORMA TAX INVOICE", "TAX INVOICE", "QUOTATION"])
         shipping_mode = st.selectbox("Shipping Mode", ["Sea Freight", "Air Freight", "Express Courier"])
     with col_b:
-        doc_date = doc_date = st.date_input("Document Date", value=datetime.today())
+        doc_date = st.date_input("Document Date", value=datetime.today())
         next_invoice_seq = len(st.session_state.invoices_db) + 1
         date_str = doc_date.strftime("%Y-%m-%d").replace("-", "")
         dynamic_doc_num = f"PI-{date_str}-{next_invoice_seq:02d}"
@@ -117,7 +118,7 @@ with tab1:
     )
     st.markdown("---")
 
-    # Client Section with separate Add New Client button toggle next to heading
+    # Client Selection & Add Client Toggle
     col_cl_head1, col_cl_head2 = st.columns([3, 1])
     with col_cl_head1:
         st.markdown("### Client & Billing Details")
@@ -210,6 +211,7 @@ with tab1:
         "due_date": due_date,
         "validity": validity,
         "exchange_rate_display": f"R {base_usd_zar:,.2f}",
+        "supplier_details": SUPPLIER_DETAILS,
         "bank_details_primary": BANK_DETAILS_PRIMARY,
         "bank_details_secondary": BANK_DETAILS_SECONDARY,
         "client": {
@@ -246,13 +248,31 @@ with tab1:
 
             st.success("PDF generated successfully and recorded in dashboard!")
             
-            st.download_button(
-                label=f"📥 Tap Here to Download {dynamic_doc_num}.pdf",
-                data=pdf_buffer,
-                file_name=f"{dynamic_doc_num}.pdf",
-                mime="application/pdf",
-                type="primary"
-            )
+            # HTML Direct Save Trigger (Prevents iOS fullscreen preview hijacking)
+            b64_pdf = base64.b64encode(pdf_buffer.getvalue()).decode()
+            download_html = f"""
+                <div style="margin-top: 15px; margin-bottom: 15px;">
+                    <a href="data:application/pdf;base64,{b64_pdf}" 
+                       download="{dynamic_doc_num}.pdf" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       style="
+                            background-color: #0284C7;
+                            color: white;
+                            padding: 14px 20px;
+                            text-align: center;
+                            text-decoration: none;
+                            display: block;
+                            font-size: 16px;
+                            font-weight: bold;
+                            border-radius: 6px;
+                            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+                       ">
+                       📥 Tap to Save {dynamic_doc_num}.pdf directly to Device
+                    </a>
+                </div>
+            """
+            st.markdown(download_html, unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"Error generating PDF: {e}")
