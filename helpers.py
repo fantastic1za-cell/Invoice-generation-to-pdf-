@@ -5,10 +5,9 @@ import logging
 from typing import Dict, Any
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("ProFormaGenerator")
+logger = logging.getLogger("DocumentGenerator")
 
 def safe_float_convert(value: Any, default: float = 0.0) -> float:
-    """Failsafe float converter."""
     try:
         return float(value)
     except (ValueError, TypeError) as e:
@@ -16,7 +15,6 @@ def safe_float_convert(value: Any, default: float = 0.0) -> float:
         return default
 
 def safe_int_convert(value: Any, default: int = 1) -> int:
-    """Failsafe int converter."""
     try:
         return int(value)
     except (ValueError, TypeError) as e:
@@ -24,7 +22,6 @@ def safe_int_convert(value: Any, default: int = 1) -> int:
         return default
 
 def calculate_line_item(qty: int, unit_price: float, vat_rate: float = 0.15) -> Dict[str, float]:
-    """Calculates subtotal, VAT, and grand totals for a line item."""
     qty = max(1, qty)
     unit_price = max(0.0, unit_price)
     
@@ -39,7 +36,6 @@ def calculate_line_item(qty: int, unit_price: float, vat_rate: float = 0.15) -> 
     }
 
 def number_to_words_rand(amount: float) -> str:
-    """Converts a numeric Rand amount to English words with error catch."""
     try:
         units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", 
                  "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]
