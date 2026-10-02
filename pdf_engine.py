@@ -3,7 +3,7 @@ ReportLab PDF Generation Engine with Fallback Engine Control
 """
 import io
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 from datetime import datetime
 
 from reportlab.lib.pagesizes import A4
@@ -23,7 +23,6 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     """
     buffer = io.BytesIO()
     
-    # Primary tight geometry for 1-page fit
     top_margin = 22 if enforce_single_page else 36
     bottom_margin = 22 if enforce_single_page else 36
     
@@ -40,7 +39,6 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     styles = getSampleStyleSheet()
     normal = styles['Normal']
     
-    # Defensive style generation
     style_title = ParagraphStyle('DocTitle', parent=normal, fontName='Helvetica-Bold', fontSize=14, leading=16, textColor=colors.HexColor('#0F172A'))
     style_subtitle = ParagraphStyle('SubTitle', parent=normal, fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#475569'))
     style_supplier = ParagraphStyle('SuppText', parent=normal, fontName='Helvetica', fontSize=7, leading=8.8, textColor=colors.HexColor('#1E293B'))
@@ -233,7 +231,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(dep_table)
     story.append(Spacer(1, 4))
 
-    # 7. Banking Info (Immutable Inputs)
+    # 7. Banking Info
     bank_hdr_style = ParagraphStyle('BH', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, textColor=colors.whitesmoke, alignment=1)
     bank_body_style = ParagraphStyle('BC', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8.5, textColor=colors.HexColor('#1E293B'))
 
@@ -272,13 +270,11 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     ]))
     story.append(bank_table)
 
-    # Execution with Failover Catch
     try:
         doc.build(story)
     except Exception as build_error:
         logger.error(f"Single-page PDF rendering failed: {build_error}. Retrying without single-page enforcement.")
         if enforce_single_page:
-            # Fallback execution: disable single-page constraints and attempt multi-page generation
             return build_pdf_document(invoice_data, enforce_single_page=False)
         else:
             raise build_error
