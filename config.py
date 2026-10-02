@@ -1,15 +1,11 @@
 """
 Core Configuration and Immutable System Constants
 """
-import os
 from typing import Dict, Any
 
-APP_TITLE = "MR MOBILE SA - Pro Forma Generator"
+APP_TITLE = "MR MOBILE SA - Document Management System"
 APP_ICON = "📄"
 
-# ---------------------------------------------------------
-# IMMUTABLE CONSTANTS (NON-EDITABLE HARDCODED VALUES)
-# ---------------------------------------------------------
 SUPPLIER_DETAILS: Dict[str, Any] = {
     "company": "IRESQ LA LUCIA PTY LTD",
     "trading": "MR MOBILE SA",
