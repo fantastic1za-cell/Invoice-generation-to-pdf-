@@ -91,15 +91,16 @@ with tab1:
         shipping_mode = st.selectbox("Shipping Mode", ["Sea Freight", "Air Freight", "Express Courier"])
     with col_b:
         doc_date = st.date_input("Document Date", value=datetime.today())
-        doc_num = st.text_input("Document Number", value="PI-2026-1002-04")
+        # Document Number locked / read-only to prevent manual alteration
+        doc_num = st.text_input("Document Number", value="PI-2026-1002-04", disabled=True)
 
     col_c, col_d = st.columns(2)
     with col_c:
         due_date = st.text_input("Due Date", value="Immediate (Upon Receipt)")
     with col_d:
-        validity = st.text_input("Validity", value="30 Days")
+        validity = st.selectbox("Validity", ["1 day", "7 days", "15 days", "30 days"], index=3)
 
-    # Display Live Exchange Rate Block (Dark Theme Matching Container - No White Block)
+    # Display Live Exchange Rate Block (Dark Theme Matching Container)
     st.markdown("---")
     st.markdown(
         f"<div style='padding: 12px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
