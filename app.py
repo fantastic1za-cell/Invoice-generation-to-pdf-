@@ -72,13 +72,16 @@ tab1, tab2 = st.tabs(["📄 Document Generator", "📊 Enterprise Financial Trac
 with tab1:
     st.subheader("Configure & Generate Commercial Document")
     
-    # Fetch live US$/ZAR rate (Base rate without markup)
+    # Fetch live US$/ZAR rate (Base rate without markup, rounded up to 2 decimal places)
     def get_live_usd_zar_rate():
         try:
             response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
             if response.status_code == 200:
                 rates = response.json().get("rates", {})
-                return float(rates.get("ZAR", 18.25))
+                raw_rate = float(rates.get("ZAR", 18.25))
+                import math
+                # Round up to 2 decimal places
+                return math.ceil(raw_rate * 100) / 100.0
         except Exception:
             pass
         return 18.25
@@ -103,8 +106,8 @@ with tab1:
     # Display Live Exchange Rate Block (Dark Theme Matching Container)
     st.markdown("---")
     st.markdown(
-        f"<div style='padding: 12px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
-        f"<b>Live Market Exchange Rate (US$/ZAR):</b> <span style='color: #38BDF8; font-size: 16px;'><b>R {base_usd_zar:,.4f}</b></span>"
+        f"<div style='padding: 14px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
+        f"<b>Live Market Exchange Rate (US$/ZAR):</b> <span style='color: #38BDF8; font-size: 18px;'><b>R {base_usd_zar:,.2f}</b></span>"
         f"</div>",
         unsafe_allow_html=True
     )
@@ -197,7 +200,7 @@ with tab1:
 
     tranche1_incl = grand_incl * 0.50
 
-    # Compile Invoice Data Payload
+    # Compile Invoice Data Payload (including FX rate and clauses for pdf_engine)
     invoice_data = {
         "document_type": doc_type,
         "shipping_mode": shipping_mode,
@@ -205,7 +208,7 @@ with tab1:
         "invoice_num": doc_num,
         "due_date": due_date,
         "validity": validity,
-        "exchange_rate_display": f"R {base_usd_zar:,.4f}",
+        "exchange_rate_display": f"R {base_usd_zar:,.2f}",
         "bank_details_primary": BANK_DETAILS_PRIMARY,
         "bank_details_secondary": BANK_DETAILS_SECONDARY,
         "client": {
