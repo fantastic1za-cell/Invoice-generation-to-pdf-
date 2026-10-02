@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 15:50:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (TERMS & CLAUSES GUARANTEED)
+# TIMESTAMP: 2026-10-02 16:00:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (TERMS & CLAUSES FULLY EMBEDDED)
 # ==============================================================================
 
 import os
@@ -206,7 +206,7 @@ def build_pdf_document(data):
     story.append(due_banner_table)
     story.append(Spacer(1, 10))
 
-    # Payment & FX Terms (Section 3 top part)
+    # Payment & FX Terms
     fx_terms_text = (
         f"<b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit "
         f"(Tranche 1: R {tranche1:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. "
@@ -235,7 +235,7 @@ def build_pdf_document(data):
     story.append(bank_table)
     story.append(Spacer(1, 10))
 
-    # Statutory Compliance & Logistical Clauses (Section 3 bottom part)
+    # Statutory Compliance & Logistical Clauses
     compliance_content = [
         Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", header_style),
         Paragraph(
