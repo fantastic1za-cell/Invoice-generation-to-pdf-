@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: config.py
-# TIMESTAMP: 2026-10-02 22:42:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE
+# TIMESTAMP: 2026-10-02 23:30:00 SAST
+# STATUS: SUPPLIER DETAILS UPDATED WITH CLICKABLE LINKS & RESTRUCTURED ADDRESS
 # ==============================================================================
 
 SUPPLIER_DETAILS = {
@@ -9,8 +9,12 @@ SUPPLIER_DETAILS = {
     "trading": "T/A MR MOBILE SA",
     "vat": "4960281899",
     "email": "nisaar@fantastic1.com",
-    "address": "58 Paarlshoop Road, Homestead Park, 2092 Johannesburg, South Africa",
-    "contact": "068 710 1939 / 082 786 7712"
+    "address_line1": "58 Paarlshoop Road, Homestead Park, 2092",
+    "address_line2": "Johannesburg, South Africa",
+    "phone_call": "068 710 1939",
+    "phone_call_raw": "+27687101939",
+    "phone_wa": "082 786 7712",
+    "phone_wa_raw": "27827867712"
 }
 
 BANK_DETAILS_PRIMARY = {
