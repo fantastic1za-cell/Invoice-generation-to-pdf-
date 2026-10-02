@@ -1,6 +1,5 @@
 """
-ReportLab PDF Generation Engine with Non-Overlapping Header Layout, Logo Integration, 
-and Permanent Terms & Conditions.
+ReportLab PDF Generation Engine with Dual Banking Details and Highlighted Exchange Rate Display.
 """
 import io
 import os
@@ -13,7 +12,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
+from config import SUPPLIER_DETAILS
 from helpers import number_to_words_rand
 
 logger = logging.getLogger("DocumentGenerator")
@@ -49,7 +48,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     style_cell_right = ParagraphStyle('CellTextRight', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=2)
     style_cell_right_bold = ParagraphStyle('CellTextRightBold', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=2)
 
-    # 1. Header with Logo (No text overlapping via 3-column constrained Table layout)
+    # 1. Header with Logo
     logo_path = "logo.png"
     if os.path.exists(logo_path):
         try:
@@ -108,26 +107,25 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(client_table)
     story.append(Spacer(1, 3))
 
-    # 3. Meta Data Table
+    # 3. Meta Data Table (Including Exchange Rate Display)
+    ex_rate_display = invoice_data.get("exchange_rate_display", "N/A")
     meta_data = [
         [
             Paragraph(f"{doc_type} NO", style_meta_hdr),
             Paragraph("TAX REFERENCE", style_meta_hdr),
             Paragraph("DATE", style_meta_hdr),
-            Paragraph("SHIPPING MODE", style_meta_hdr),
-            Paragraph("DUE DATE", style_meta_hdr),
+            Paragraph("US$/ZAR RATE (INCL. 3.5%)", style_meta_hdr),
             Paragraph("VALIDITY", style_meta_hdr)
         ],
         [
             Paragraph(str(invoice_data.get("invoice_num", "")), style_meta_val),
             Paragraph(SUPPLIER_DETAILS["vat_no"], style_meta_val),
             Paragraph(invoice_data.get("invoice_date", datetime.today()).strftime('%d %B %Y'), style_meta_val),
-            Paragraph(str(invoice_data.get("shipping_mode", "")), style_meta_val),
-            Paragraph(str(invoice_data.get("due_date", "")), style_meta_val),
+            Paragraph(f"<b>{ex_rate_display}</b>", style_meta_val),
             Paragraph(str(invoice_data.get("validity", "")), style_meta_val)
         ]
     ]
-    meta_table = Table(meta_data, colWidths=[92, 90, 95, 90, 95, 85])
+    meta_table = Table(meta_data, colWidths=[92, 90, 95, 180, 90])
     meta_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F1F5F9')),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
@@ -138,7 +136,8 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(Spacer(1, 4))
 
     # 4. Products Table
-    story.append(Paragraph(f"<b>1. COMMERCIAL LINE-ITEM SPECIFICATION ({str(invoice_data.get('shipping_mode', '')).upper()} MOQ RUN)</b>", ParagraphStyle('SubT', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#475569'))))
+    shipping_mode = str(invoice_data.get('shipping_mode', ''))
+    story.append(Paragraph(f"<b>1. COMMERCIAL LINE-ITEM SPECIFICATION ({shipping_mode.upper()} MOQ RUN)</b>", ParagraphStyle('SubT', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#475569'))))
     story.append(Spacer(1, 2))
 
     item_table_data = [[
@@ -246,7 +245,10 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(dep_table)
     story.append(Spacer(1, 3))
 
-    # 7. Banking Info
+    # 7. Dual Banking Info (Both Primary and Secondary displayed simultaneously)
+    b1 = invoice_data.get("bank_details_primary", {})
+    b2 = invoice_data.get("bank_details_secondary", {})
+
     bank_hdr_style = ParagraphStyle('BH', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=1)
     bank_body_style = ParagraphStyle('BC', parent=normal, fontName='Helvetica', fontSize=6, leading=7.5, textColor=colors.HexColor('#1E293B'))
 
@@ -257,19 +259,19 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
         ],
         [
             Paragraph(
-                f"<b>Account Name:</b> {BANK_DETAILS_PRIMARY['acc_name']}<br/>"
-                f"<b>Bank:</b> {BANK_DETAILS_PRIMARY['bank_name']}<br/>"
-                f"<b>Account Type:</b> {BANK_DETAILS_PRIMARY['account_type']}<br/>"
-                f"<b>Account No:</b> <b>{BANK_DETAILS_PRIMARY['account_number']}</b><br/>"
-                f"<b>Branch Code:</b> {BANK_DETAILS_PRIMARY['branch_code']}",
+                f"<b>Account Name:</b> {b1.get('acc_name', '')}<br/>"
+                f"<b>Bank:</b> {b1.get('bank_name', '')}<br/>"
+                f"<b>Account Type:</b> {b1.get('account_type', '')}<br/>"
+                f"<b>Account No:</b> <b>{b1.get('account_number', '')}</b><br/>"
+                f"<b>Branch Code:</b> {b1.get('branch_code', '')}",
                 bank_body_style
             ),
             Paragraph(
-                f"<b>Account Name:</b> {BANK_DETAILS_SECONDARY['acc_name']}<br/>"
-                f"<b>Bank:</b> {BANK_DETAILS_SECONDARY['bank_name']}<br/>"
-                f"<b>Account Type:</b> {BANK_DETAILS_SECONDARY['account_type']}<br/>"
-                f"<b>Account No:</b> <b>{BANK_DETAILS_SECONDARY['account_number']}</b><br/>"
-                f"<b>Branch Code:</b> {BANK_DETAILS_SECONDARY['branch_code']} &nbsp;|&nbsp; <b>SWIFT:</b> {BANK_DETAILS_SECONDARY['swift_code']}",
+                f"<b>Account Name:</b> {b2.get('acc_name', '')}<br/>"
+                f"<b>Bank:</b> {b2.get('bank_name', '')}<br/>"
+                f"<b>Account Type:</b> {b2.get('account_type', '')}<br/>"
+                f"<b>Account No:</b> <b>{b2.get('account_number', '')}</b><br/>"
+                f"<b>Branch Code:</b> {b2.get('branch_code', '')} &nbsp;|&nbsp; <b>SWIFT:</b> {b2.get('swift_code', '')}",
                 bank_body_style
             )
         ]
@@ -286,7 +288,7 @@ def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool =
     story.append(bank_table)
     story.append(Spacer(1, 3))
 
-    # 8. Permanent Statutory Compliance & Logistical Clauses Block
+    # 8. Statutory Compliance & Logistical Clauses
     terms_hdr_style = ParagraphStyle('TH', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'))
     terms_body_style = ParagraphStyle('TB', parent=normal, fontName='Helvetica', fontSize=5.5, leading=7, textColor=colors.HexColor('#334155'))
 
