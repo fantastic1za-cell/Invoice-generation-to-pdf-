@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: app.py
-# TIMESTAMP: 2026-10-02 15:33:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE FAIL-SAFE (DIRECT DOWNLOAD LINK ENABLED)
+# TIMESTAMP: 2026-10-02 15:50:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (AUTO-INCREMENT & AUTO-DOWNLOAD)
 # ==============================================================================
 
 import streamlit as st
@@ -63,7 +63,7 @@ if "sku_database" not in st.session_state:
         }
     }
 
-# 2. Application Header & Branding (Clear, readable white text)
+# 2. Application Header & Branding
 st.markdown(
     "<h1 style='text-align: center; color: #FFFFFF;'>MR MOBILE SA — Commercial Document & Invoicing Engine</h1>", 
     unsafe_allow_html=True
@@ -71,7 +71,6 @@ st.markdown(
 st.markdown("<p style='text-align: center; color: #94A3B8;'>Enterprise Management & Operations Dashboard [Locked: 2026-10-02]</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# Multi-tab layout configuration
 tab1, tab2 = st.tabs(["📄 Document Generator", "📊 Enterprise Financial Tracking Dashboard"])
 
 # ==========================================
@@ -80,7 +79,6 @@ tab1, tab2 = st.tabs(["📄 Document Generator", "📊 Enterprise Financial Trac
 with tab1:
     st.subheader("Configure & Generate Commercial Document")
     
-    # Fetch live US$/ZAR rate (Base rate without markup, rounded up to 2 decimal places with failover)
     def get_live_usd_zar_rate():
         try:
             response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
@@ -100,8 +98,13 @@ with tab1:
         shipping_mode = st.selectbox("Shipping Mode", ["Sea Freight", "Air Freight", "Express Courier"])
     with col_b:
         doc_date = st.date_input("Document Date", value=datetime.today())
-        # Document Number locked / read-only to prevent manual alteration
-        doc_num = st.text_input("Document Number", value="PI-2026-1002-04", disabled=True)
+        
+        # Dynamic Auto-Incrementing Document Number based on Ledger count
+        next_invoice_seq = len(st.session_state.invoices_db) + 1
+        date_str = doc_date.strftime("%Y-%m-%d").replace("-", "")
+        dynamic_doc_num = f"PI-{date_str}-{next_invoice_seq:02d}"
+        
+        doc_num = st.text_input("Document Number (Auto-Incremented)", value=dynamic_doc_num, disabled=True)
 
     col_c, col_d = st.columns(2)
     with col_c:
@@ -109,7 +112,6 @@ with tab1:
     with col_d:
         validity = st.selectbox("Validity", ["1 day", "7 days", "15 days", "30 days"], index=3)
 
-    # Display Live Exchange Rate Block (Dark Theme Matching Container)
     st.markdown("---")
     st.markdown(
         f"<div style='padding: 14px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
@@ -119,9 +121,7 @@ with tab1:
     )
     st.markdown("---")
 
-    # Client Selection Dropdown & Details Management
     st.markdown("### Client & Billing Details")
-    
     existing_client_options = list(st.session_state.client_database.keys()) + ["+ Add New Client"]
     selected_client_option = st.selectbox("Select Existing Client or Add New", existing_client_options)
 
@@ -153,7 +153,6 @@ with tab1:
             reg_address = st.text_input("Reg Address", value=client_info["reg_address"])
             del_address = st.text_input("Delivery Address", value=client_info["del_address"])
 
-    # Line Items & SKU Database Selection
     st.markdown("### Commercial Line-Item Specification")
     num_items = st.number_input("How many products / line items?", min_value=1, max_value=10, value=1)
 
@@ -165,7 +164,6 @@ with tab1:
 
     for i in range(int(num_items)):
         st.markdown(f"#### Item #{i+1}")
-        
         selected_sku_option = st.selectbox(f"Select SKU / Item Code #{i+1}", existing_skus, key=f"sku_select_{i}")
         
         if selected_sku_option == "+ Add New Custom SKU":
@@ -188,7 +186,7 @@ with tab1:
             }
 
         net_subtotal = qty * unit_price
-        total_incl = net_subtotal * 1.15  # 15% VAT
+        total_incl = net_subtotal * 1.15
         
         grand_excl += net_subtotal
         grand_incl += total_incl
@@ -208,7 +206,7 @@ with tab1:
         "document_type": doc_type,
         "shipping_mode": shipping_mode,
         "invoice_date": doc_date,
-        "invoice_num": doc_num,
+        "invoice_num": dynamic_doc_num,
         "due_date": due_date,
         "validity": validity,
         "exchange_rate_display": f"R {base_usd_zar:,.2f}",
@@ -228,9 +226,9 @@ with tab1:
         try:
             pdf_buffer = build_pdf_document(invoice_data)
             
-            existing_idx = next((idx for idx, inv in enumerate(st.session_state.invoices_db) if inv["doc_num"] == doc_num), None)
+            existing_idx = next((idx for idx, inv in enumerate(st.session_state.invoices_db) if inv["doc_num"] == dynamic_doc_num), None)
             new_inv_record = {
-                "doc_num": doc_num,
+                "doc_num": dynamic_doc_num,
                 "client_name": client_name,
                 "trading_name": trading_name,
                 "invoice_total": grand_incl,
@@ -246,28 +244,36 @@ with tab1:
             else:
                 st.session_state.invoices_db.append(new_inv_record)
 
-            st.success("PDF generated successfully and recorded in dashboard!")
+            st.success("PDF generated successfully and direct download triggered!")
             
-            # Direct Download HTML Button (Forces file download prompt without opening fullscreen viewer)
+            # Direct Auto-Download via JavaScript Blob Trigger (No preview screen)
             b64_pdf = base64.b64encode(pdf_buffer.getvalue()).decode()
-            download_button_html = f"""
-                <div style="margin-top: 15px; margin-bottom: 15px;">
-                    <a href="data:application/pdf;base64,{b64_pdf}" download="{doc_num}.pdf" style="
-                        background-color: #0284C7;
-                        color: white;
-                        padding: 12px 24px;
-                        text-align: center;
-                        text-decoration: none;
-                        display: inline-block;
-                        font-size: 16px;
-                        font-weight: bold;
-                        border-radius: 6px;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                        width: 100%;
-                    ">📥 Tap Here to Download {doc_num}.pdf Directly</a>
-                </div>
+            auto_download_js = f"""
+                <script>
+                    var b64Data = "{b64_pdf}";
+                    var filename = "{dynamic_doc_num}.pdf";
+                    var sliceSize = 512;
+                    var byteCharacters = atob(b64Data);
+                    var byteArrays = [];
+                    for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {{
+                        var slice = byteCharacters.slice(offset, offset + sliceSize);
+                        var byteNumbers = new Array(slice.length);
+                        for (var i = 0; i < slice.length; i++) {{
+                            byteNumbers[i] = slice.charCodeAt(i);
+                        }}
+                        var byteArray = new Uint8Array(byteNumbers);
+                        byteArrays.push(byteArray);
+                    }}
+                    var blob = new Blob(byteArrays, {{type: 'application/pdf'}});
+                    var link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                </script>
             """
-            st.markdown(download_button_html, unsafe_allow_html=True)
+            st.components.v1.html(auto_download_js, height=0)
 
         except Exception as e:
             st.error(f"Error generating PDF: {e}")
