@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 15:40:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (WATERMARK & HEADER LOGO INTEGRATED)
+# TIMESTAMP: 2026-10-02 15:42:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (WATERMARK 150PX & EXACT HEADER ALIGNMENT)
 # ==============================================================================
 
 import os
@@ -15,8 +15,8 @@ from reportlab.pdfgen import canvas
 
 class NumberedCanvas(canvas.Canvas):
     """
-    Custom canvas that draws the centered whitewashed watermark logo 
-    on the page background, along with professional page numbering.
+    Custom canvas that draws the centered 150px whitewashed watermark logo 
+    on the page background, along with professional layout handling.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -30,24 +30,22 @@ class NumberedCanvas(canvas.Canvas):
         num_pages = len(self.pages)
         for page in self.pages:
             self.__dict__.update(page)
-            self.draw_watermark_and_footer(num_pages)
+            self.draw_watermark_and_footer()
             super().showPage()
         super().save()
 
-    def draw_watermark_and_footer(self, total_pages):
+    def draw_watermark_and_footer(self):
         self.saveState()
         
-        # 1. Whitewashed Background Watermark Logo (Centered, light opacity/wash)
+        # Whitewashed Background Watermark Logo (Centered at 150px, light opacity)
         logo_path = "mmsalogo.png.jpg"
         if os.path.exists(logo_path):
             try:
-                self.setFillAlpha(0.08)  # Light whitewashed opacity
-                # Draw centered on A4 page (Width: 595.27, Height: 841.89)
-                img_width = 300
-                img_height = 300
-                x_pos = (595.27 - img_width) / 2
-                y_pos = (841.89 - img_height) / 2
-                self.drawImage(logo_path, x_pos, y_pos, width=img_width, height=img_height, preserveAspectRatio=True, mask='auto')
+                self.setFillAlpha(0.06)  # Light whitewashed background wash
+                img_size = 150
+                x_pos = (595.27 - img_size) / 2
+                y_pos = (841.89 - img_size) / 2
+                self.drawImage(logo_path, x_pos, y_pos, width=img_size, height=img_size, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
                 
@@ -125,11 +123,10 @@ def build_pdf_document(data):
     )
 
     # ==========================================
-    # HEADER SECTION: LOGO & SUPPLIER DETAILS
+    # HEADER SECTION: LOGO (CENTERED 45PX) & SUPPLIER DETAILS
     # ==========================================
     logo_path = "mmsalogo.png.jpg"
     if os.path.exists(logo_path):
-        # Logo centered at 45px height
         logo_img = Image(logo_path, width=45, height=45)
         logo_img.hAlign = 'CENTER'
         story.append(logo_img)
@@ -344,7 +341,7 @@ def build_pdf_document(data):
     story.append(Spacer(1, 10))
 
     # ==========================================
-    # PAYMENT & FOREIGN EXCHANGE TERMS (Extracted from Photo 2)
+    # PAYMENT & FOREIGN EXCHANGE TERMS
     # ==========================================
     fx_terms_text = (
         f"<b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit "
@@ -405,7 +402,7 @@ def build_pdf_document(data):
     story.append(Spacer(1, 10))
 
     # ==========================================
-    # 3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES (Extracted from Photo 2)
+    # 3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES
     # ==========================================
     compliance_content = [
         Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", header_style),
@@ -428,7 +425,7 @@ def build_pdf_document(data):
     ]))
     story.append(KeepTogether(compliance_table))
 
-    # Build PDF using NumberedCanvas for watermark and headers
+    # Build PDF
     doc.build(story, canvasmaker=NumberedCanvas)
     buffer.seek(0)
     return buffer
