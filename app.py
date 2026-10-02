@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: app.py
-# TIMESTAMP: 2026-10-02 23:12:00 SAST
-# STATUS: DIRECT JS AUTO-DOWNLOAD INJECTION & REFINED INTERFACE
+# TIMESTAMP: 2026-10-02 23:22:00 SAST
+# STATUS: STREAMLIT APP WATERMARK & LIVE FX OUTPUT TOGGLE ADDED
 # ==============================================================================
 
 import streamlit as st
@@ -9,6 +9,7 @@ import requests
 import pandas as pd
 import math
 import base64
+import os
 from datetime import datetime
 from pdf_engine import build_pdf_document
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
@@ -20,6 +21,27 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# 2. Inject App-Wide Background Watermark (MMSA Logo)
+logo_file = "mmsalogo.png.jpg"
+if os.path.exists(logo_file):
+    with open(logo_file, "rb") as image_file:
+        encoded_logo = base64.b64encode(image_file.read()).decode()
+    
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: linear-gradient(rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.92)), url("data:image/jpeg;base64,{encoded_logo}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 # Initialize Session State
 if "invoices_db" not in st.session_state:
@@ -106,12 +128,19 @@ with tab1:
         validity = st.selectbox("Validity", ["1 day", "7 days", "15 days", "30 days"], index=3)
 
     st.markdown("---")
-    st.markdown(
-        f"<div style='padding: 12px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
-        f"<b>Live Market FX (US$/ZAR):</b> <span style='color: #38BDF8; font-size: 16px;'><b>R {base_usd_zar:,.2f}</b></span>"
-        f"</div>",
-        unsafe_allow_html=True
-    )
+    
+    # FX Rate Control Bar with Output Toggle
+    fx_col1, fx_col2 = st.columns([2, 1])
+    with fx_col1:
+        st.markdown(
+            f"<div style='padding: 12px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
+            f"<b>Live Market FX (US$/ZAR):</b> <span style='color: #38BDF8; font-size: 16px;'><b>R {base_usd_zar:,.2f}</b></span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+    with fx_col2:
+        show_fx_on_output = st.radio("Show on output:", ["Yes", "No"], index=0, horizontal=True)
+
     st.markdown("---")
 
     col_cl_head1, col_cl_head2 = st.columns([3, 1])
@@ -189,8 +218,6 @@ with tab1:
             "Total Price (Incl)": total_incl
         })
 
-    tranche1_incl = grand_incl * 0.50
-
     invoice_data = {
         "document_type": doc_type,
         "shipping_mode": shipping_mode,
@@ -198,6 +225,7 @@ with tab1:
         "invoice_num": dynamic_doc_num,
         "due_date": due_date,
         "validity": validity,
+        "show_fx_on_output": (show_fx_on_output == "Yes"),
         "exchange_rate_display": f"R {base_usd_zar:,.2f}",
         "supplier_details": SUPPLIER_DETAILS,
         "bank_details_primary": BANK_DETAILS_PRIMARY,
@@ -218,7 +246,6 @@ with tab1:
             pdf_bytes = pdf_buffer.getvalue()
             b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
 
-            # Direct Download HTML Injection (Bypasses iOS PDF preview screen)
             download_html = f"""
                 <div style="margin-top: 15px; text-align: center;">
                     <a id="auto_pdf_dl" href="data:application/pdf;base64,{b64_pdf}" download="{dynamic_doc_num}.pdf" style="
@@ -236,7 +263,6 @@ with tab1:
                     </a>
                 </div>
             """
-            
             st.success("PDF generated successfully!")
             st.markdown(download_html, unsafe_allow_html=True)
 
