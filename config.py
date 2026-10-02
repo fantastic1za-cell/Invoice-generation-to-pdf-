@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: config.py
-# TIMESTAMP: 2026-10-02 23:30:00 SAST
-# STATUS: SUPPLIER DETAILS UPDATED WITH CLICKABLE LINKS & RESTRUCTURED ADDRESS
+# TIMESTAMP: 2026-10-02 23:40:00 SAST
+# STATUS: SUPPLIER DETAILS UPDATED WITH EXPLICIT ADDRESS SPLIT
 # ==============================================================================
 
 SUPPLIER_DETAILS = {
@@ -9,8 +9,8 @@ SUPPLIER_DETAILS = {
     "trading": "T/A MR MOBILE SA",
     "vat": "4960281899",
     "email": "nisaar@fantastic1.com",
-    "address_line1": "58 Paarlshoop Road, Homestead Park, 2092",
-    "address_line2": "Johannesburg, South Africa",
+    "street_address": "58 Paarlshoop Road, Homestead Park, 2092",
+    "city_country": "Johannesburg, South Africa",
     "phone_call": "068 710 1939",
     "phone_call_raw": "+27687101939",
     "phone_wa": "082 786 7712",
