@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 23:22:00 SAST
-# STATUS: WATERMARK LIGHTENED TO 0.15 (2X LIGHTER) & DYNAMIC FX OUTPUT CONTROL
+# TIMESTAMP: 2026-10-02 23:30:00 SAST
+# STATUS: CLICKABLE LINKS (EMAIL/CALL/WA) + 3-LINE SPACING BEFORE CLIENT DETAILS
 # ==============================================================================
 
 import os
@@ -15,7 +15,7 @@ from reportlab.pdfgen import canvas
 class NumberedCanvas(canvas.Canvas):
     """
     Draws full-page background logo watermark at 0.15 opacity 
-    (2x lighter than previous 0.30 for clear readability).
+    (2x lighter opacity for crisp text legibility).
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,7 +37,7 @@ class NumberedCanvas(canvas.Canvas):
         logo_path = "mmsalogo.png.jpg"
         if os.path.exists(logo_path):
             try:
-                self.setFillAlpha(0.15)  # 2x lighter opacity
+                self.setFillAlpha(0.15)
                 page_w, page_h = 595.27, 841.89
                 self.drawImage(
                     logo_path, 
@@ -80,22 +80,34 @@ def build_pdf_document(data):
     body_bold = ParagraphStyle('TableBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, textColor=PRIMARY_COLOR)
     header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white)
 
-    # 1. Supplier Details Header
+    # 1. Supplier Details Header with Links & Line Breaks
     supplier = data.get('supplier_details', {})
+    
+    email_addr = supplier.get('email', 'nisaar@fantastic1.com')
+    phone_call_display = supplier.get('phone_call', '068 710 1939')
+    phone_call_raw = supplier.get('phone_call_raw', '+27687101939')
+    phone_wa_display = supplier.get('phone_wa', '082 786 7712')
+    phone_wa_raw = supplier.get('phone_wa_raw', '27827867712')
+    
+    address_l1 = supplier.get('address_line1', '58 Paarlshoop Road, Homestead Park, 2092')
+    address_l2 = supplier.get('address_line2', 'Johannesburg, South Africa')
+
+    supplier_formatted_text = (
+        f"<b>SUPPLIER DETAILS</b><br/>"
+        f"{supplier.get('entity', '')}<br/>"
+        f"{supplier.get('trading', '')}<br/>"
+        f"<b>VAT Details:</b> {supplier.get('vat', '')}<br/>"
+        f"<b>EMAIL:</b> <a href=\"mailto:{email_addr}\" color=\"#0284C7\"><u>{email_addr}</u></a><br/>"
+        f"{address_l1}<br/>"
+        f"{address_l2}<br/>"
+        f"<b>Contact:</b> <a href=\"tel:{phone_call_raw}\" color=\"#0284C7\"><u>{phone_call_display}</u></a> / "
+        f"<a href=\"https://wa.me/{phone_wa_raw}\" color=\"#16A34A\"><u>{phone_wa_display} (WhatsApp)</u></a>"
+    )
 
     header_data = [
         [
             Paragraph(f"<b>{data.get('document_type', 'PRO FORMA TAX INVOICE')}</b>", title_style),
-            Paragraph(
-                f"<b>SUPPLIER DETAILS</b><br/>"
-                f"{supplier.get('entity', '')}<br/>"
-                f"{supplier.get('trading', '')}<br/>"
-                f"<b>VAT Details:</b> {supplier.get('vat', '')}<br/>"
-                f"<b>EMAIL:</b> {supplier.get('email', '')}<br/>"
-                f"{supplier.get('address', '')}<br/>"
-                f"<b>Contact:</b> {supplier.get('contact', '')}",
-                sub_title_style
-            )
+            Paragraph(supplier_formatted_text, sub_title_style)
         ],
         [
             Paragraph("Official Commercial Document | SARS VAT Compliant", sub_title_style),
@@ -105,9 +117,11 @@ def build_pdf_document(data):
     header_table = Table(header_data, colWidths=[285, 270])
     header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('SPAN', (1,0), (1,1)), ('BOTTOMPADDING', (0,0), (-1,-1), 0)]))
     story.append(header_table)
-    story.append(Spacer(1, 4))
 
-    # 2. Client Details Table
+    # Leave 3 blank lines (24pt space) after contact details before Client Billing Details
+    story.append(Spacer(1, 24))
+
+    # 2. Client & Billing Details Table
     client = data.get('client', {})
     client_data = [
         [Paragraph("<b>CLIENT & BILLING DETAILS</b>", header_style)],
@@ -123,9 +137,9 @@ def build_pdf_document(data):
     client_table = Table(client_data, colWidths=[555])
     client_table.setStyle(TableStyle([('BACKGROUND', (0,0), (0,0), PRIMARY_COLOR), ('BACKGROUND', (0,1), (0,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(client_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 6))
 
-    # 3. Document Meta Details Table (Dynamically includes or hides FX column)
+    # 3. Document Meta Details Table
     show_fx = data.get('show_fx_on_output', True)
     
     if show_fx:
@@ -154,7 +168,7 @@ def build_pdf_document(data):
 
     meta_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), SECONDARY_COLOR), ('BACKGROUND', (0,1), (-1,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(meta_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 6))
 
     # 4. Commercial Line Items
     story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", body_bold))
@@ -188,7 +202,7 @@ def build_pdf_document(data):
     line_table = Table(line_rows, colWidths=[225, 55, 90, 90, 95])
     line_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), PRIMARY_COLOR), ('BACKGROUND', (0,-1), (-1,-1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(line_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 6))
 
     # 5. Contractual Milestone Payment Schedule
     tranche1 = grand_incl * 0.50
@@ -206,16 +220,16 @@ def build_pdf_document(data):
     sched_table = Table(sched_rows, colWidths=[265, 60, 115, 115])
     sched_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), SECONDARY_COLOR), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(sched_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 6))
 
     # Total Due Banner
     due_banner_data = [[Paragraph(f"<font color='#B91C1C'><b>TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)</b></font><br/><font size=10><b>R {tranche1:,.2f}</b></font>", ParagraphStyle('DueBanner', parent=styles['Normal'], alignment=1, fontSize=8.5, leading=11))]]
     due_banner_table = Table(due_banner_data, colWidths=[555])
     due_banner_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FEF2F2")), ('BOX', (0,0), (-1,-1), 1, ACCENT_COLOR), ('PADDING', (0,0), (-1,-1), 4), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
     story.append(due_banner_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 6))
 
-    # 6. Payment & FX Terms (Only shown if FX option is enabled)
+    # 6. Payment & FX Terms
     if show_fx:
         fx_terms_text = (
             f"<b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit "
@@ -226,7 +240,7 @@ def build_pdf_document(data):
         fx_table = Table([[Paragraph(fx_terms_text, body_style)]], colWidths=[555])
         fx_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FFFBEB")), ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#F59E0B")), ('PADDING', (0,0), (-1,-1), 3)]))
         story.append(fx_table)
-        story.append(Spacer(1, 4))
+        story.append(Spacer(1, 6))
 
     # 7. Banking Details Table
     bank_p = data.get('bank_details_primary', {})
@@ -243,7 +257,7 @@ def build_pdf_document(data):
     bank_table = Table(bank_rows, colWidths=[277.5, 277.5])
     bank_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), PRIMARY_COLOR), ('BACKGROUND', (0,1), (-1,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(bank_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 6))
 
     # 8. Statutory Compliance
     compliance_content = [
