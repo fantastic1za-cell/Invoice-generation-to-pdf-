@@ -1,343 +1,434 @@
-"""
-ReportLab PDF Generation Engine with Centered Watermark, Bold Exchange Rate Block, and Dual Banking.
-"""
-import io
-import os
-import logging
-from typing import Dict, Any
-from datetime import datetime
+# ==============================================================================
+# SCRIPT NAME: pdf_engine.py
+# TIMESTAMP: 2026-10-02 15:40:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (WATERMARK & HEADER LOGO INTEGRATED)
+# ==============================================================================
 
+import os
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.pdfgen import canvas
 
-from config import SUPPLIER_DETAILS
-from helpers import number_to_words_rand
+class NumberedCanvas(canvas.Canvas):
+    """
+    Custom canvas that draws the centered whitewashed watermark logo 
+    on the page background, along with professional page numbering.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pages = []
 
-logger = logging.getLogger("DocumentGenerator")
+    def showPage(self):
+        self.pages.append(dict(self.__dict__))
+        self._startPage()
 
-def draw_watermark(canvas, doc):
-    """Draws a subtle whitewashed logo watermark centered on the page canvas."""
-    canvas.saveState()
-    logo_path = "logo.png"
-    if os.path.exists(logo_path):
-        try:
-            # Center of A4 is width=595.27, height=841.89
-            img_width = 250
-            img_height = 120
-            x = (595.27 - img_width) / 2
-            y = (841.89 - img_height) / 2
-            canvas.setFillAlpha(0.12)  # Light whitewash transparency
-            canvas.drawImage(logo_path, x, y, width=img_width, height=img_height, preserveAspectRatio=True, mask='auto')
-        except Exception:
-            pass
-    canvas.restoreState()
+    def save(self):
+        num_pages = len(self.pages)
+        for page in self.pages:
+            self.__dict__.update(page)
+            self.draw_watermark_and_footer(num_pages)
+            super().showPage()
+        super().save()
 
-def build_pdf_document(invoice_data: Dict[str, Any], enforce_single_page: bool = True) -> io.BytesIO:
+    def draw_watermark_and_footer(self, total_pages):
+        self.saveState()
+        
+        # 1. Whitewashed Background Watermark Logo (Centered, light opacity/wash)
+        logo_path = "mmsalogo.png.jpg"
+        if os.path.exists(logo_path):
+            try:
+                self.setFillAlpha(0.08)  # Light whitewashed opacity
+                # Draw centered on A4 page (Width: 595.27, Height: 841.89)
+                img_width = 300
+                img_height = 300
+                x_pos = (595.27 - img_width) / 2
+                y_pos = (841.89 - img_height) / 2
+                self.drawImage(logo_path, x_pos, y_pos, width=img_width, height=img_height, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+                
+        self.restoreState()
+
+
+def build_pdf_document(data):
+    import io
     buffer = io.BytesIO()
     
-    top_margin = 18 if enforce_single_page else 36
-    bottom_margin = 18 if enforce_single_page else 36
-    
+    # Document Setup (A4 with professional margins)
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        leftMargin=24,
-        rightMargin=24,
-        topMargin=top_margin,
-        bottomMargin=bottom_margin
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
     )
-    
+
     story = []
     styles = getSampleStyleSheet()
-    normal = styles['Normal']
-    
-    doc_type = invoice_data.get("document_type", "PRO FORMA TAX INVOICE")
-    
-    style_title = ParagraphStyle('DocTitle', parent=normal, fontName='Helvetica-Bold', fontSize=12, leading=14, textColor=colors.HexColor('#0F172A'))
-    style_supplier = ParagraphStyle('SuppText', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8, textColor=colors.HexColor('#1E293B'))
-    style_meta_hdr = ParagraphStyle('MetaHdr', parent=normal, fontName='Helvetica-Bold', fontSize=5.5, leading=7, textColor=colors.HexColor('#64748B'), alignment=1)
-    style_meta_val = ParagraphStyle('MetaVal', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=1)
-    
-    style_cell = ParagraphStyle('CellText', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'))
-    style_cell_bold = ParagraphStyle('CellTextBold', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'))
-    style_cell_right = ParagraphStyle('CellTextRight', parent=normal, fontName='Helvetica', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=2)
-    style_cell_right_bold = ParagraphStyle('CellTextRightBold', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'), alignment=2)
 
-    # 1. Header with Centered Logo positioning & Supplier Details
-    logo_path = "logo.png"
+    # Custom Color Palette
+    PRIMARY_COLOR = colors.HexColor("#0F172A")    # Deep Navy
+    SECONDARY_COLOR = colors.HexColor("#334155")  # Slate Grey
+    ACCENT_COLOR = colors.HexColor("#B91C1C")     # Crimson Red
+    LIGHT_BG = colors.HexColor("#F8FAFC")         # Light Grey Background
+    BORDER_COLOR = colors.HexColor("#CBD5E1")     # Border Grey
+
+    # Typography Styles
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=18,
+        leading=22,
+        textColor=PRIMARY_COLOR
+    )
+    
+    sub_title_style = ParagraphStyle(
+        'DocSubTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=12,
+        textColor=SECONDARY_COLOR
+    )
+
+    body_style = ParagraphStyle(
+        'TableBody',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8.5,
+        leading=11,
+        textColor=PRIMARY_COLOR
+    )
+
+    body_bold = ParagraphStyle(
+        'TableBodyBold',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=11,
+        textColor=PRIMARY_COLOR
+    )
+
+    header_style = ParagraphStyle(
+        'TableHeader',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=12,
+        textColor=colors.white
+    )
+
+    # ==========================================
+    # HEADER SECTION: LOGO & SUPPLIER DETAILS
+    # ==========================================
+    logo_path = "mmsalogo.png.jpg"
     if os.path.exists(logo_path):
-        try:
-            logo_flowable = Image(logo_path, width=75, height=36)
-            logo_flowable.hAlign = 'CENTER'
-        except Exception:
-            logo_flowable = Paragraph("<b>MR MOBILE SA</b>", style_title)
-    else:
-        logo_flowable = Paragraph("<b>MR MOBILE SA</b>", style_title)
+        # Logo centered at 45px height
+        logo_img = Image(logo_path, width=45, height=45)
+        logo_img.hAlign = 'CENTER'
+        story.append(logo_img)
+        # Exactly 5px spacing below the logo as requested
+        story.append(Spacer(1, 5))
 
-    head_data = [
+    supplier = SUPPLIER_DETAILS if 'SUPPLIER_DETAILS' in globals() else {
+        "entity": "IRESQ LA LUCIA PTY LTD",
+        "trading": "T/A MR MOBILE SA",
+        "vat": "4960281899",
+        "email": "nisaar@fantastic1.com",
+        "address": "58 Paarlshoop Road, Homestead Park, 2092 Johannesburg, South Africa",
+        "contact": "068 710 1939 / 082 786 7712"
+    }
+
+    header_data = [
         [
-            logo_flowable,
-            Paragraph(f"<b>{doc_type}</b><br/><font size=6 color='#64748B'>Official Commercial Document | SARS Compliant</font>", style_title),
+            Paragraph(f"<b>{data.get('document_type', 'PRO FORMA TAX INVOICE')}</b>", title_style),
             Paragraph(
                 f"<b>SUPPLIER DETAILS</b><br/>"
-                f"<b>{SUPPLIER_DETAILS['company']}</b><br/>"
-                f"T/A {SUPPLIER_DETAILS['trading']}<br/>"
-                f"<b>VAT Details:</b> {SUPPLIER_DETAILS['vat_no']}<br/>"
-                f"<b>EMAIL:</b> {SUPPLIER_DETAILS['email']}<br/>"
-                f"{SUPPLIER_DETAILS['address']}<br/>"
-                f"Contact: {SUPPLIER_DETAILS['contact']}",
-                style_supplier
+                f"{supplier.get('entity', 'IRESQ LA LUCIA PTY LTD')}<br/>"
+                f"{supplier.get('trading', 'T/A MR MOBILE SA')}<br/>"
+                f"<b>VAT Details:</b> {supplier.get('vat', '4960281899')}<br/>"
+                f"<b>EMAIL:</b> {supplier.get('email', 'nisaar@fantastic1.com')}<br/>"
+                f"{supplier.get('address', '')}<br/>"
+                f"<b>Contact:</b> {supplier.get('contact', '')}",
+                sub_title_style
             )
-        ]
-    ]
-    head_table = Table(head_data, colWidths=[80, 200, 267])
-    head_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'), 
-        ('ALIGN', (0,0), (0,0), 'CENTER'),
-        ('ALIGN', (2,0), (2,0), 'RIGHT')
-    ]))
-    story.append(head_table)
-    story.append(Spacer(1, 4))
-
-    # 2. Client Details
-    client = invoice_data.get("client", {})
-    client_box_data = [[
-        Paragraph(
-            f"<b>CLIENT & BILLING DETAILS</b><br/>"
-            f"<b>{client.get('client_name', 'N/A')}</b><br/>"
-            f"Trading Name: {client.get('trading_name', 'N/A')}<br/>"
-            f"{client.get('reg_vat', '')}<br/>"
-            f"<b>Reg Address:</b> {client.get('reg_address', 'N/A')}<br/>"
-            f"<b>Delivery Addr:</b> {client.get('del_address', 'N/A')}",
-            style_supplier
-        )
-    ]]
-    client_table = Table(client_box_data, colWidths=[547])
-    client_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
-        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-        ('LEFTPADDING', (0,0), (-1,-1), 5), ('RIGHTPADDING', (0,0), (-1,-1), 5),
-    ]))
-    story.append(client_table)
-    story.append(Spacer(1, 3))
-
-    # 3. Meta Data Table (Including Live US$/ZAR Exchange Rate Block)
-    ex_rate_display = invoice_data.get("exchange_rate_display", "R 18.25")
-    meta_data = [
-        [
-            Paragraph("INVOICE NO", style_meta_hdr),
-            Paragraph("TAX REFERENCE", style_meta_hdr),
-            Paragraph("DATE", style_meta_hdr),
-            Paragraph("US$/ZAR MARKET RATE", style_meta_hdr),
-            Paragraph("VALIDITY", style_meta_hdr)
         ],
         [
-            Paragraph(str(invoice_data.get("invoice_num", "")), style_meta_val),
-            Paragraph(SUPPLIER_DETAILS["vat_no"], style_meta_val),
-            Paragraph(invoice_data.get("invoice_date", datetime.today()).strftime('%d %B %Y'), style_meta_val),
-            Paragraph(f"<b>{ex_rate_display}</b>", style_meta_val),
-            Paragraph(str(invoice_data.get("validity", "")), style_meta_val)
+            Paragraph("Official Commercial Document | SARS VAT Compliant", sub_title_style),
+            ""
         ]
     ]
-    meta_table = Table(meta_data, colWidths=[92, 90, 95, 180, 90])
+
+    header_table = Table(header_data, colWidths=[270, 252])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('SPAN', (1,0), (1,1)),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 10))
+
+    # ==========================================
+    # CLIENT & BILLING DETAILS
+    # ==========================================
+    client = data.get('client', {})
+    client_data = [
+        [Paragraph("<b>CLIENT & BILLING DETAILS</b>", header_style)],
+        [Paragraph(
+            f"<b>Client Name:</b> {client.get('client_name', '')}<br/>"
+            f"<b>Trading Name:</b> {client.get('trading_name', '')}<br/>"
+            f"<b>Co. Reg & VAT:</b> {client.get('reg_vat', '')}<br/>"
+            f"<b>Reg Address:</b> {client.get('reg_address', '')}<br/>"
+            f"<b>Delivery Addr:</b> {client.get('del_address', '')}",
+            body_style
+        )]
+    ]
+    client_table = Table(client_data, colWidths=[522])
+    client_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,0), PRIMARY_COLOR),
+        ('BACKGROUND', (0,1), (0,1), LIGHT_BG),
+        ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(client_table)
+    story.append(Spacer(1, 10))
+
+    # ==========================================
+    # META DETAILS TABLE (Invoice No, Date, Validity, Exchange Rate)
+    # ==========================================
+    meta_headers = [
+        Paragraph("INVOICE NO", header_style),
+        Paragraph("TAX REFERENCE", header_style),
+        Paragraph("DATE", header_style),
+        Paragraph("SHIPPING", header_style),
+        Paragraph("DUE DATE", header_style),
+        Paragraph("VALIDITY", header_style),
+        Paragraph("US$/ZAR FX", header_style)
+    ]
+    meta_values = [
+        Paragraph(str(data.get('invoice_num', '')), body_bold),
+        Paragraph(supplier.get('vat', '4960281899'), body_style),
+        Paragraph(str(data.get('invoice_date', '')), body_style),
+        Paragraph(str(data.get('shipping_mode', '')), body_style),
+        Paragraph(str(data.get('due_date', '')), body_style),
+        Paragraph(str(data.get('validity', '')), body_style),
+        Paragraph(f"<b>{data.get('exchange_rate_display', '')}</b>", body_bold)
+    ]
+    meta_table = Table([meta_headers, meta_values], colWidths=[75, 75, 70, 75, 80, 65, 82])
     meta_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F1F5F9')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+        ('BACKGROUND', (0,0), (-1,0), SECONDARY_COLOR),
+        ('BACKGROUND', (0,1), (-1,1), LIGHT_BG),
+        ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('PADDING', (0,0), (-1,-1), 5),
     ]))
     story.append(meta_table)
+    story.append(Spacer(1, 12))
+
+    # ==========================================
+    # 1. COMMERCIAL LINE-ITEM SPECIFICATION
+    # ==========================================
+    story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", body_bold))
     story.append(Spacer(1, 4))
 
-    # 4. Products Table
-    shipping_mode = str(invoice_data.get('shipping_mode', ''))
-    story.append(Paragraph(f"<b>1. COMMERCIAL LINE-ITEM SPECIFICATION ({shipping_mode.upper()} MOQ RUN)</b>", ParagraphStyle('SubT', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#475569'))))
-    story.append(Spacer(1, 2))
-
-    item_table_data = [[
-        Paragraph("Bespoke Product Description", ParagraphStyle('IH1', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke)),
-        Paragraph("Qty", ParagraphStyle('IH2', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=1)),
-        Paragraph("Unit Price<br/>(Excl. VAT)", ParagraphStyle('IH3', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2)),
-        Paragraph("Net Subtotal<br/>(Excl. VAT)", ParagraphStyle('IH4', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2)),
-        Paragraph("Total Price<br/>(Incl. VAT)", ParagraphStyle('IH5', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2))
-    ]]
-
-    products = invoice_data.get("products", [])
-    total_qty = 0
+    line_headers = [
+        Paragraph("Bespoke Product Description", header_style),
+        Paragraph("Qty", header_style),
+        Paragraph("Unit Price<br/>(Excl. VAT)", header_style),
+        Paragraph("Net Subtotal<br/>(Excl. VAT)", header_style),
+        Paragraph("Total Price<br/>(Incl. VAT)", header_style)
+    ]
+    
+    line_rows = [line_headers]
     grand_excl = 0.0
     grand_incl = 0.0
 
-    for p in products:
-        qty = p["Qty"]
-        total_qty += qty
-        grand_excl += p["Net Subtotal (Excl)"]
-        grand_incl += p["Total Price (Incl)"]
+    for prod in data.get('products', []):
+        net_sub = prod['Qty'] * prod['Unit Price (Excl)']
+        tot_inc = net_sub * 1.15
+        grand_excl += net_sub
+        grand_incl += tot_inc
 
-        desc_p = Paragraph(f"<b>{p['SKU']}</b><br/><font color='#475569'>{p['Description']}</font>", style_cell)
-        item_table_data.append([
-            desc_p,
-            Paragraph(f"{qty:,}", ParagraphStyle('C1', parent=style_cell, alignment=1)),
-            Paragraph(f"R {p['Unit Price (Excl)']:,.2f}", style_cell_right),
-            Paragraph(f"R {p['Net Subtotal (Excl)']:,.2f}", style_cell_right),
-            Paragraph(f"R {p['Total Price (Incl)']:,.2f}", style_cell_right)
+        line_rows.append([
+            Paragraph(f"<b>{prod['SKU']}</b><br/>{prod['Description']}", body_style),
+            Paragraph(f"{prod['Qty']:,.0f}", body_style),
+            Paragraph(f"R {prod['Unit Price (Excl)']:,.2f}", body_style),
+            Paragraph(f"R {net_sub:,.2f}", body_style),
+            Paragraph(f"R {tot_inc:,.2f}", body_style)
         ])
 
-    item_table_data.append([
-        Paragraph("<b>Combined Program Totals (MOQ Run)</b>", style_cell_bold),
-        Paragraph(f"<b>{total_qty:,}</b>", ParagraphStyle('C2', parent=style_cell_bold, alignment=1)),
-        Paragraph("", style_cell),
-        Paragraph(f"<b>R {grand_excl:,.2f}</b>", style_cell_right_bold),
-        Paragraph(f"<b>R {grand_incl:,.2f}</b>", style_cell_right_bold)
+    line_rows.append([
+        Paragraph("<b>Combined Program Totals (MOQ Run)</b>", body_bold),
+        Paragraph(f"<b>{sum(p['Qty'] for p in data.get('products', [])):,.0f}</b>", body_bold),
+        Paragraph("", body_style),
+        Paragraph(f"<b>R {grand_excl:,.2f}</b>", body_bold),
+        Paragraph(f"<b>R {grand_incl:,.2f}</b>", body_bold)
     ])
 
-    item_table = Table(item_table_data, colWidths=[237, 50, 80, 90, 90])
-    item_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+    line_table = Table(line_rows, colWidths=[202, 55, 85, 90, 90])
+    line_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), PRIMARY_COLOR),
+        ('BACKGROUND', (0,-1), (-1,-1), LIGHT_BG),
+        ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR),
+        ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#F8FAFC')),
+        ('PADDING', (0,0), (-1,-1), 6),
     ]))
-    story.append(item_table)
+    story.append(line_table)
+    story.append(Spacer(1, 12))
+
+    # ==========================================
+    # 2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE
+    # ==========================================
+    tranche1 = grand_incl * 0.50
+    tranche2 = grand_incl * 0.50
+
+    story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", body_bold))
     story.append(Spacer(1, 4))
 
-    # 5. Milestone Payment Schedule
-    tranche1_excl = grand_excl * 0.50
-    tranche1_incl = grand_incl * 0.50
-
-    story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", ParagraphStyle('SubT2', parent=normal, fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=colors.HexColor('#475569'))))
-    story.append(Spacer(1, 2))
-
-    m_data = [
+    sched_headers = [
+        Paragraph("Payment Milestone Tranche", header_style),
+        Paragraph("Share %", header_style),
+        Paragraph("Net Value<br/>(Excl. VAT)", header_style),
+        Paragraph("Grand Total<br/>(Incl. VAT)", header_style)
+    ]
+    sched_rows = [
+        sched_headers,
         [
-            Paragraph("Payment Milestone Tranche", ParagraphStyle('MH1', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke)),
-            Paragraph("Share %", ParagraphStyle('MH2', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=1)),
-            Paragraph("Net Value<br/>(Excl. VAT)", ParagraphStyle('MH3', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2)),
-            Paragraph("Grand Total<br/>(Incl. VAT)", ParagraphStyle('MH4', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=2))
+            Paragraph("<b>TRANCHE 1: STARTUP DEPOSIT</b><br/>Required to secure materials & commerce factory assembly runs.", body_style),
+            Paragraph("50%", body_style),
+            Paragraph(f"R {tranche1 / 1.15:,.2f}", body_style),
+            Paragraph(f"R {tranche1:,.2f}", body_style)
         ],
         [
-            Paragraph("<b>TRANCHE 1: STARTUP DEPOSIT</b><br/><font color='#475569'>Required to secure materials & commence factory assembly runs. Pricing locked & absorbed as billed.</font>", style_cell),
-            Paragraph("<b>50%</b>", ParagraphStyle('MC1', parent=style_cell_bold, alignment=1)),
-            Paragraph(f"R {tranche1_excl:,.2f}", style_cell_right),
-            Paragraph(f"<b>R {tranche1_incl:,.2f}</b>", style_cell_right_bold)
-        ],
-        [
-            Paragraph("<b>TRANCHE 2: PORT RELEASE BALANCE</b><br/><font color='#475569'>Payable post-inspection, prior to loading in China. Balance subject to prevailing exchange rate at time of loading.</font>", style_cell),
-            Paragraph("<b>50%</b>", ParagraphStyle('MC2', parent=style_cell_bold, alignment=1)),
-            Paragraph(f"R {tranche1_excl:,.2f}*", style_cell_right),
-            Paragraph(f"R {tranche1_incl:,.2f}*", style_cell_right)
+            Paragraph("<b>TRANCHE 2: PORT RELEASE BALANCE</b><br/>Payable post-inspection, prior to loading in China.", body_style),
+            Paragraph("50%", body_style),
+            Paragraph(f"R {tranche2 / 1.15:,.2f}", body_style),
+            Paragraph(f"R {tranche2:,.2f}*", body_style)
         ]
     ]
-    m_table = Table(m_data, colWidths=[277, 50, 110, 110])
-    m_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+    sched_table = Table(sched_rows, colWidths=[252, 60, 105, 105])
+    sched_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), SECONDARY_COLOR),
+        ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR),
+        ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
+        ('PADDING', (0,0), (-1,-1), 6),
     ]))
-    story.append(m_table)
-    story.append(Spacer(1, 3))
+    story.append(sched_table)
+    story.append(Spacer(1, 8))
 
-    # 6. Deposit Highlight Box with Payment & FX Terms
-    words_str = number_to_words_rand(tranche1_incl)
-    deposit_box_data = [[
+    # Total Due Banner
+    due_banner_data = [[
         Paragraph(
-            f"<font size=6 color='#B91C1C'><b>TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)</b></font><br/>"
-            f"<font size=5.5 color='#475569'>({words_str})</font><br/>"
-            f"<font size=10 color='#B91C1C'><b>R {tranche1_incl:,.2f}</b></font><br/>"
-            f"<font size=5.5 color='#1E293B'><b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit (Tranche 1: R {tranche1_incl:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) rate at the time of final port release payment.</font>",
-            ParagraphStyle('DepStyle', parent=normal, alignment=1, leading=8)
+            f"<font color='#B91C1C'><b>TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)</b></font><br/>"
+            f"<font size=12><b>R {tranche1:,.2f}</b></font>",
+            ParagraphStyle('DueBanner', parent=styles['Normal'], alignment=1, fontSize=10, leading=14)
         )
     ]]
-    dep_table = Table(deposit_box_data, colWidths=[547])
-    dep_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF2F2')),
-        ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#FCA5A5')),
+    due_banner_table = Table(due_banner_data, colWidths=[522])
+    due_banner_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FEF2F2")),
+        ('BOX', (0,0), (-1,-1), 1, ACCENT_COLOR),
+        ('PADDING', (0,0), (-1,-1), 8),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
     ]))
-    story.append(dep_table)
-    story.append(Spacer(1, 3))
+    story.append(due_banner_table)
+    story.append(Spacer(1, 10))
 
-    # 7. Dual Banking Info
-    b1 = invoice_data.get("bank_details_primary", {})
-    b2 = invoice_data.get("bank_details_secondary", {})
+    # ==========================================
+    # PAYMENT & FOREIGN EXCHANGE TERMS (Extracted from Photo 2)
+    # ==========================================
+    fx_terms_text = (
+        f"<b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit "
+        f"(Tranche 1: R {tranche1:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. "
+        f"The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) "
+        f"rate at the time of final port release payment."
+    )
+    fx_table = Table([[Paragraph(fx_terms_text, body_style)]], colWidths=[522])
+    fx_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FFFBEB")),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#F59E0B")),
+        ('PADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(fx_table)
+    story.append(Spacer(1, 10))
 
-    bank_hdr_style = ParagraphStyle('BH', parent=normal, fontName='Helvetica-Bold', fontSize=6, textColor=colors.whitesmoke, alignment=1)
-    bank_body_style = ParagraphStyle('BC', parent=normal, fontName='Helvetica', fontSize=6, leading=7.5, textColor=colors.HexColor('#1E293B'))
+    # ==========================================
+    # BANKING DETAILS
+    # ==========================================
+    bank_p = data.get('bank_details_primary', BANK_DETAILS_PRIMARY)
+    bank_s = data.get('bank_details_secondary', BANK_DETAILS_SECONDARY)
 
-    bank_table_data = [
-        [
-            Paragraph("<b>OFFICIAL CORPORATE ACCOUNT (FNB 1)</b>", bank_hdr_style),
-            Paragraph("<b>FRANCHISE BUSINESS ACCOUNT (FNB 2)</b>", bank_hdr_style)
-        ],
+    bank_headers = [
+        Paragraph("OFFICIAL CORPORATE ACCOUNT (FNB 1)", header_style),
+        Paragraph("FRANCHISE BUSINESS ACCOUNT (FNB 2)", header_style)
+    ]
+    bank_rows = [
+        bank_headers,
         [
             Paragraph(
-                f"<b>Account Name:</b> {b1.get('acc_name', '')}<br/>"
-                f"<b>Bank:</b> {b1.get('bank_name', '')}<br/>"
-                f"<b>Account Type:</b> {b1.get('account_type', '')}<br/>"
-                f"<b>Account No:</b> <b>{b1.get('account_number', '')}</b><br/>"
-                f"<b>Branch Code:</b> {b1.get('branch_code', '')}",
-                bank_body_style
+                f"<b>Account Name:</b> {bank_p.get('account_name', '')}<br/>"
+                f"<b>Bank:</b> {bank_p.get('bank_name', '')}<br/>"
+                f"<b>Account Type:</b> {bank_p.get('account_type', '')}<br/>"
+                f"<b>Account No:</b> {bank_p.get('account_number', '')}<br/>"
+                f"<b>Branch Code:</b> {bank_p.get('branch_code', '')}",
+                body_style
             ),
             Paragraph(
-                f"<b>Account Name:</b> {b2.get('acc_name', '')}<br/>"
-                f"<b>Bank:</b> {b2.get('bank_name', '')}<br/>"
-                f"<b>Account Type:</b> {b2.get('account_type', '')}<br/>"
-                f"<b>Account No:</b> <b>{b2.get('account_number', '')}</b><br/>"
-                f"<b>Branch Code:</b> {b2.get('branch_code', '')} &nbsp;|&nbsp; <b>SWIFT:</b> {b2.get('swift_code', '')}",
-                bank_body_style
+                f"<b>Account Name:</b> {bank_s.get('account_name', '')}<br/>"
+                f"<b>Bank:</b> {bank_s.get('bank_name', '')}<br/>"
+                f"<b>Account Type:</b> {bank_s.get('account_type', '')}<br/>"
+                f"<b>Account No:</b> {bank_s.get('account_number', '')}<br/>"
+                f"<b>Branch Code:</b> {bank_s.get('branch_code', '')} | <b>SWIFT:</b> {bank_s.get('swift', '')}",
+                body_style
             )
         ]
     ]
-    bank_table = Table(bank_table_data, colWidths=[273, 274])
+    bank_table = Table(bank_rows, colWidths=[261, 261])
     bank_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
-        ('BACKGROUND', (0,1), (-1,1), colors.HexColor('#F8FAFC')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
-        ('LEFTPADDING', (0,0), (-1,-1), 4), ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('BACKGROUND', (0,0), (-1,0), PRIMARY_COLOR),
+        ('BACKGROUND', (0,1), (-1,1), LIGHT_BG),
+        ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR),
+        ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('PADDING', (0,0), (-1,-1), 6),
     ]))
     story.append(bank_table)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 10))
 
-    # 8. Statutory Compliance & Logistical Clauses
-    terms_hdr_style = ParagraphStyle('TH', parent=normal, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=colors.HexColor('#0F172A'))
-    terms_body_style = ParagraphStyle('TB', parent=normal, fontName='Helvetica', fontSize=5.5, leading=7, textColor=colors.HexColor('#334155'))
-
-    terms_data = [
-        [
-            Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", terms_hdr_style)
-        ],
-        [
-            Paragraph(
-                "• <b>Raw Material Securement:</b> Production planning, custom material blending, and machine line configurations will trigger automatically upon formal reflection of the 50% Tranche 1 deposit inside our corporate banking treasury. The 50% initial startup pricing is absorbed and fixed as billed.<br/>"
-                "• <b>Origin Loading Protection & FX Adjustment:</b> The final 50% balance tranche is contractually tied to origin quality control (QC) verification prior to container loading in China. The final balance payment will be calculated based on the prevailing foreign exchange (FX) rate at the time of transaction settlement.",
-                terms_body_style
-            )
-        ]
+    # ==========================================
+    # 3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES (Extracted from Photo 2)
+    # ==========================================
+    compliance_content = [
+        Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", header_style),
+        Paragraph(
+            "• <b>Raw Material Securement:</b> Production planning, custom material blending, and machine line configurations will trigger "
+            "automatically upon formal reflection of the 50% Tranche 1 deposit inside our corporate banking treasury. The 50% initial startup "
+            "pricing is absorbed and fixed as billed.<br/>"
+            "• <b>Origin Loading Protection & FX Adjustment:</b> The final 50% balance tranche is contractually tied to origin quality control (QC) "
+            "verification prior to container loading in China. The final balance payment will be calculated based on the prevailing foreign "
+            "exchange (FX) rate at the time of transaction settlement.",
+            body_style
+        )
     ]
-    terms_table = Table(terms_data, colWidths=[547])
-    terms_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
-        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
-        ('TOPPADDING', (0,0), (-1,-1), 2.5), ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
-        ('LEFTPADDING', (0,0), (-1,-1), 4), ('RIGHTPADDING', (0,0), (-1,-1), 4),
+    compliance_table = Table(compliance_content, colWidths=[522])
+    compliance_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,0), SECONDARY_COLOR),
+        ('BACKGROUND', (0,1), (0,1), LIGHT_BG),
+        ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR),
+        ('PADDING', (0,0), (-1,-1), 6),
     ]))
-    story.append(terms_table)
+    story.append(KeepTogether(compliance_table))
 
-    try:
-        doc.build(story, onFirstPage=draw_watermark, onLaterPages=draw_watermark)
-    except Exception as build_error:
-        logger.error(f"Single-page PDF rendering failed: {build_error}. Retrying without single-page enforcement.")
-        if enforce_single_page:
-            return build_pdf_document(invoice_data, enforce_single_page=False)
-        else:
-            raise build_error
-
+    # Build PDF using NumberedCanvas for watermark and headers
+    doc.build(story, canvasmaker=NumberedCanvas)
     buffer.seek(0)
     return buffer
