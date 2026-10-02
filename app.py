@@ -1,14 +1,13 @@
 # ==============================================================================
 # SCRIPT NAME: app.py
-# TIMESTAMP: 2026-10-02 15:50:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (AUTO-INCREMENT & AUTO-DOWNLOAD)
+# TIMESTAMP: 2026-10-02 15:55:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (NATIVE MOBILE DOWNLOAD GUARANTEE)
 # ==============================================================================
 
 import streamlit as st
 import requests
 import pandas as pd
 import math
-import base64
 from datetime import datetime
 from pdf_engine import build_pdf_document
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
@@ -222,7 +221,7 @@ with tab1:
         "products": products
     }
 
-    if st.button("Generate & Download PDF Invoice", type="primary"):
+    if st.button("Generate PDF Invoice", type="primary"):
         try:
             pdf_buffer = build_pdf_document(invoice_data)
             
@@ -244,36 +243,16 @@ with tab1:
             else:
                 st.session_state.invoices_db.append(new_inv_record)
 
-            st.success("PDF generated successfully and direct download triggered!")
+            st.success("PDF generated successfully and recorded in dashboard!")
             
-            # Direct Auto-Download via JavaScript Blob Trigger (No preview screen)
-            b64_pdf = base64.b64encode(pdf_buffer.getvalue()).decode()
-            auto_download_js = f"""
-                <script>
-                    var b64Data = "{b64_pdf}";
-                    var filename = "{dynamic_doc_num}.pdf";
-                    var sliceSize = 512;
-                    var byteCharacters = atob(b64Data);
-                    var byteArrays = [];
-                    for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {{
-                        var slice = byteCharacters.slice(offset, offset + sliceSize);
-                        var byteNumbers = new Array(slice.length);
-                        for (var i = 0; i < slice.length; i++) {{
-                            byteNumbers[i] = slice.charCodeAt(i);
-                        }}
-                        var byteArray = new Uint8Array(byteNumbers);
-                        byteArrays.push(byteArray);
-                    }}
-                    var blob = new Blob(byteArrays, {{type: 'application/pdf'}});
-                    var link = document.createElement('a');
-                    link.href = window.URL.createObjectURL(blob);
-                    link.download = filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                </script>
-            """
-            st.components.v1.html(auto_download_js, height=0)
+            # Native Streamlit Download Button (Guaranteed mobile file save prompt)
+            st.download_button(
+                label=f"📥 Tap Here to Download {dynamic_doc_num}.pdf",
+                data=pdf_buffer,
+                file_name=f"{dynamic_doc_num}.pdf",
+                mime="application/pdf",
+                type="primary"
+            )
 
         except Exception as e:
             st.error(f"Error generating PDF: {e}")
