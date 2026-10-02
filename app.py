@@ -4,6 +4,29 @@ import pandas as pd
 from datetime import datetime
 from pdf_engine import build_pdf_document
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
+import streamlit as st
+
+# 1. Page Configuration (Must be the first Streamlit command)
+st.set_page_config(
+    page_title="Mr Mobile SA",
+    page_icon="mmsalogo.png",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# 2. Application Header & Branding
+st.title("Mr Mobile SA — Portal")
+st.markdown("### Enterprise Management & Operations Dashboard")
+st.divider()
+
+# 3. Main Workspace Placeholder
+st.info(
+    "Application successfully initialized. Your custom logo (mmsalogo.png) is active as the browser tab favicon."
+)
+
+# Add your app-specific logic, components, and widgets below this line:
+# example:
+# st.write("Welcome to your dashboard.")
 
 st.set_page_config(page_title="MR MOBILE SA — Commercial Document Engine", layout="wide")
 
