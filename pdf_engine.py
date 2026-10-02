@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 22:45:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (CORRECTED 2D MATRIX TABLE INPUTS)
+# TIMESTAMP: 2026-10-02 22:55:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (FULL-PAGE WATERMARK & MATRIX VERIFIED)
 # ==============================================================================
 
 import os
@@ -15,8 +15,8 @@ from reportlab.pdfgen import canvas
 
 class NumberedCanvas(canvas.Canvas):
     """
-    Custom canvas that draws a centered 150px whitewashed watermark logo 
-    on the page background with safe opacity handling.
+    Custom canvas drawing a full-page background logo watermark 
+    with darker opacity (0.20) across the entire printable area.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -39,11 +39,28 @@ class NumberedCanvas(canvas.Canvas):
         logo_path = "mmsalogo.png.jpg"
         if os.path.exists(logo_path):
             try:
-                self.setFillAlpha(0.06)
-                img_size = 150
-                x_pos = (595.27 - img_size) / 2
-                y_pos = (841.89 - img_size) / 2
-                self.drawImage(logo_path, x_pos, y_pos, width=img_size, height=img_size, preserveAspectRatio=True, mask='auto')
+                # 0.20 Opacity (3 shades darker than previous 0.06)
+                self.setFillAlpha(0.20)
+                
+                # Full page printable dimensions (A4 = 595.27 x 841.89)
+                page_w, page_h = 595.27, 841.89
+                margin = 36
+                bg_w = page_w - (margin * 2)
+                bg_h = page_h - (margin * 2)
+                
+                # Centered full section fill
+                x_pos = margin
+                y_pos = margin
+                
+                self.drawImage(
+                    logo_path, 
+                    x_pos, 
+                    y_pos, 
+                    width=bg_w, 
+                    height=bg_h, 
+                    preserveAspectRatio=True, 
+                    mask='auto'
+                )
             except Exception:
                 pass
         self.restoreState()
@@ -77,7 +94,7 @@ def build_pdf_document(data):
     body_bold = ParagraphStyle('TableBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=PRIMARY_COLOR)
     header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.white)
 
-    # 1. Header Logo (Centered 45px height, 5px margin below) & Supplier Info
+    # 1. Header Logo (Centered 45px height, 5px space below) & Supplier Info
     logo_path = "mmsalogo.png.jpg"
     if os.path.exists(logo_path):
         logo_img = Image(logo_path, width=45, height=45)
@@ -253,7 +270,7 @@ def build_pdf_document(data):
     story.append(bank_table)
     story.append(Spacer(1, 10))
 
-    # 8. Statutory Compliance & Logistical Clauses (2D List Matrix)
+    # 8. Statutory Compliance & Logistical Clauses (Proper 2D Matrix)
     compliance_content = [
         [Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", header_style)],
         [Paragraph(
