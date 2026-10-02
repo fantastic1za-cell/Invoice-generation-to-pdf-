@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: app.py
-# TIMESTAMP: 2026-10-02 15:55:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (NATIVE MOBILE DOWNLOAD GUARANTEE)
+# TIMESTAMP: 2026-10-02 22:28:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (FIXED CONFIG IMPORTS & SEPARATE ADD CLIENT)
 # ==============================================================================
 
 import streamlit as st
@@ -96,13 +96,10 @@ with tab1:
         doc_type = st.selectbox("Document Type", ["PRO FORMA TAX INVOICE", "TAX INVOICE", "QUOTATION"])
         shipping_mode = st.selectbox("Shipping Mode", ["Sea Freight", "Air Freight", "Express Courier"])
     with col_b:
-        doc_date = st.date_input("Document Date", value=datetime.today())
-        
-        # Dynamic Auto-Incrementing Document Number based on Ledger count
+        doc_date = doc_date = st.date_input("Document Date", value=datetime.today())
         next_invoice_seq = len(st.session_state.invoices_db) + 1
         date_str = doc_date.strftime("%Y-%m-%d").replace("-", "")
         dynamic_doc_num = f"PI-{date_str}-{next_invoice_seq:02d}"
-        
         doc_num = st.text_input("Document Number (Auto-Incremented)", value=dynamic_doc_num, disabled=True)
 
     col_c, col_d = st.columns(2)
@@ -120,13 +117,16 @@ with tab1:
     )
     st.markdown("---")
 
-    st.markdown("### Client & Billing Details")
-    existing_client_options = list(st.session_state.client_database.keys()) + ["+ Add New Client"]
-    selected_client_option = st.selectbox("Select Existing Client or Add New", existing_client_options)
+    # Client Section with separate Add New Client button toggle next to heading
+    col_cl_head1, col_cl_head2 = st.columns([3, 1])
+    with col_cl_head1:
+        st.markdown("### Client & Billing Details")
+    with col_cl_head2:
+        add_new_client_toggle = st.checkbox("➕ Add New Client")
 
-    if selected_client_option == "+ Add New Client":
-        st.info("Enter details for the new client below. They will be saved to your client database.")
-        client_name = st.text_input("Client Name", value="")
+    if add_new_client_toggle:
+        st.info("Enter new client details below. They will be saved to your client database.")
+        client_name = st.text_input("New Client Name", value="")
         trading_name = st.text_input("Trading Name", value="")
         reg_vat = st.text_input("Co. Reg & VAT", value="")
         reg_address = st.text_input("Reg Address", value="")
@@ -140,7 +140,8 @@ with tab1:
                 "del_address": del_address
             }
     else:
-        client_name = selected_client_option
+        existing_clients = list(st.session_state.client_database.keys())
+        client_name = st.selectbox("Select Existing Client", existing_clients)
         client_info = st.session_state.client_database[client_name]
         
         col_e, col_f = st.columns(2)
@@ -245,7 +246,6 @@ with tab1:
 
             st.success("PDF generated successfully and recorded in dashboard!")
             
-            # Native Streamlit Download Button (Guaranteed mobile file save prompt)
             st.download_button(
                 label=f"📥 Tap Here to Download {dynamic_doc_num}.pdf",
                 data=pdf_buffer,
