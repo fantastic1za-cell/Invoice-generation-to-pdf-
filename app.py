@@ -1,5 +1,5 @@
 """
-Streamlit UI Controller with Multi-Tab Dashboard & Payment Tracking Ledger
+Streamlit UI Controller with Multi-Tab Dashboard & Document Type Selector
 """
 import streamlit as st
 import pandas as pd
@@ -11,31 +11,43 @@ from pdf_engine import build_pdf_document
 
 st.set_page_config(page_title=config.APP_TITLE, page_icon=config.APP_ICON, layout="wide")
 
-# Initialize Session State Ledger for Invoices
 if "invoice_ledger" not in st.session_state:
     st.session_state.invoice_ledger = []
 
 def main():
     try:
-        st.title("📄 MR MOBILE SA - Invoice Management System")
+        st.title("📄 MR MOBILE SA - Document Management System")
         st.caption(
             f"Supplier: **{config.SUPPLIER_DETAILS['company']} t/a {config.SUPPLIER_DETAILS['trading']}** | "
             f"Locked VAT: **{config.SUPPLIER_DETAILS['vat_no']}**"
         )
 
+        # Sidebar Logo Uploader
+        st.sidebar.subheader("Brand Logo Setup")
+        uploaded_logo = st.sidebar.file_uploader("Upload Header Logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+        if uploaded_logo is not None:
+            with open("logo.png", "wb") as f:
+                f.write(uploaded_logo.getbuffer())
+            st.sidebar.success("Logo saved successfully!")
+
         # Tab Architecture
-        tab_generator, tab_dashboard = st.tabs(["📝 Pro Forma Generator", "📊 Invoice & Payment Dashboard"])
+        tab_generator, tab_dashboard = st.tabs(["📝 Document Generator", "📊 Invoice & Payment Dashboard"])
 
         with tab_generator:
-            # Section 1: Metadata
-            st.header("1. Document Metadata")
-            col1, col2, col3, col4 = st.columns(4)
+            # Section 1: Metadata & Document Type
+            st.header("1. Document Type & Metadata")
             
-            with col1:
-                invoice_date = st.date_input("Invoice Date", datetime.today())
-                invoice_num = st.text_input("Invoice Number", f"PI-{invoice_date.strftime('%Y-%m%d')}-02")
-            with col2:
+            type_col1, type_col2 = st.columns([2, 2])
+            with type_col1:
+                document_type = st.selectbox("Select Document Type", ["QUOTATION", "PRO FORMA INVOICE", "INVOICE"])
+            with type_col2:
                 shipping_mode = st.selectbox("Shipping Mode", ["Sea Freight", "Air Freight", "Road Express", "Local Collection"])
+
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                invoice_date = st.date_input("Document Date", datetime.today())
+                invoice_num = st.text_input("Document Number", f"DOC-{invoice_date.strftime('%Y-%m%d')}-02")
+            with col2:
                 due_date_str = st.text_input("Due Date", "Immediate (Upon Receipt)")
             with col3:
                 validity_str = st.text_input("Validity", "30 Days")
@@ -102,7 +114,7 @@ def main():
             st.markdown("---")
 
             # Section 4: Calculations & Summary
-            st.header("4. Live Invoice & Milestone Calculation")
+            st.header("4. Live Financial Calculation")
             
             df_products = pd.DataFrame(products)
             df_display = df_products.copy()
@@ -128,6 +140,7 @@ def main():
 
             # Section 5: Register & Download
             invoice_payload = {
+                "document_type": document_type,
                 "invoice_date": invoice_date,
                 "invoice_num": invoice_num,
                 "shipping_mode": shipping_mode,
@@ -139,15 +152,15 @@ def main():
 
             col_btn1, col_btn2 = st.columns([1, 1])
             with col_btn1:
-                if st.button("💾 Register / Update Invoice in Dashboard Ledger", type="primary", use_container_width=True):
-                    # Check if invoice already exists in ledger
-                    existing_idx = next((i for i, inv in enumerate(st.session_state.invoice_ledger) if inv["Invoice No"] == invoice_num), None)
+                if st.button("💾 Register / Update Document in Dashboard Ledger", type="primary", use_container_width=True):
+                    existing_idx = next((i for i, inv in enumerate(st.session_state.invoice_ledger) if inv["Document No"] == invoice_num), None)
                     
                     ledger_entry = {
-                        "Invoice No": invoice_num,
+                        "Document Type": document_type,
+                        "Document No": invoice_num,
                         "Date": invoice_date.strftime('%Y-%m-%d'),
                         "Client Name": client_data.get("client_name", "N/A"),
-                        "Co. Reg / VAT": client_data.get("reg_vat", "N/A"),
+                        "Co. Reg / Inc Number": client_data.get("reg_vat", "N/A"),
                         "Invoice Total (Incl)": grand_incl,
                         "Deposit Required": deposit_required,
                         "Amount Paid": deposit_required if existing_idx is None else st.session_state.invoice_ledger[existing_idx]["Amount Paid"],
@@ -156,18 +169,18 @@ def main():
                     
                     if existing_idx is not None:
                         st.session_state.invoice_ledger[existing_idx] = ledger_entry
-                        st.success(f"Invoice **{invoice_num}** successfully updated in the Dashboard Ledger!")
+                        st.success(f"Document **{invoice_num}** successfully updated in the Dashboard Ledger!")
                     else:
                         st.session_state.invoice_ledger.append(ledger_entry)
-                        st.success(f"Invoice **{invoice_num}** successfully registered to the Dashboard Ledger!")
+                        st.success(f"Document **{invoice_num}** successfully registered to the Dashboard Ledger!")
 
             with col_btn2:
                 try:
                     pdf_buffer = build_pdf_document(invoice_payload, enforce_single_page=True)
                     st.download_button(
-                        label="📥 Download Pro Forma PDF (A4 Single Page)",
+                        label=f"📥 Download {document_type.title()} PDF (A4 Single Page)",
                         data=pdf_buffer,
-                        file_name=f"Pro_Forma_Invoice_{invoice_num}_{client_data.get('client_name', 'Client').replace(' ', '_')}.pdf",
+                        file_name=f"{document_type.replace(' ', '_')}_{invoice_num}_{client_data.get('client_name', 'Client').replace(' ', '_')}.pdf",
                         mime="application/pdf",
                         use_container_width=True
                     )
@@ -177,39 +190,35 @@ def main():
 
         with tab_dashboard:
             st.header("📊 Invoice & Payment Tracking Dashboard")
-            st.markdown("Monitor all generated invoices, track incoming deposits, and manage balance settlements in real-time.")
+            st.markdown("Monitor all generated documents, track incoming deposits, and manage balance settlements in real-time.")
 
             if not st.session_state.invoice_ledger:
-                st.info("No invoices registered yet. Generate and register an invoice in Tab 1 to view it here.")
+                st.info("No documents registered yet. Generate and register a document in Tab 1 to view it here.")
             else:
                 ledger_df = pd.DataFrame(st.session_state.invoice_ledger)
-                
-                # Calculate Outstanding Dynamically
                 ledger_df["Outstanding Balance"] = ledger_df["Invoice Total (Incl)"] - ledger_df["Amount Paid"]
 
-                # Metrics Summary Bar
                 total_invoiced = ledger_df["Invoice Total (Incl)"].sum()
                 total_collected = ledger_df["Amount Paid"].sum()
                 total_outstanding = ledger_df["Outstanding Balance"].sum()
 
                 m1, m2, m3 = st.columns(3)
-                m1.metric("Total Invoiced Value", f"R {total_invoiced:,.2f}")
+                m1.metric("Total Document Value", f"R {total_invoiced:,.2f}")
                 m2.metric("Total Collected / Paid", f"R {total_collected:,.2f}")
                 m3.metric("Total Outstanding Balance", f"R {total_outstanding:,.2f}")
 
                 st.markdown("---")
                 st.subheader("Interactive Ledger Management")
-                st.markdown("Edit **Amount Paid** or select **Payment Status** directly in the table below. Changes update calculations instantly.")
 
-                # Interactive Data Editor for Status & Amount Paid
                 edited_df = st.data_editor(
                     ledger_df,
                     column_config={
-                        "Invoice No": st.column_config.TextColumn("Invoice No", disabled=True),
+                        "Document Type": st.column_config.TextColumn("Type", disabled=True),
+                        "Document No": st.column_config.TextColumn("Document No", disabled=True),
                         "Date": st.column_config.TextColumn("Date", disabled=True),
                         "Client Name": st.column_config.TextColumn("Client Name", disabled=True),
-                        "Co. Reg / VAT": st.column_config.TextColumn("Co. Reg / Inc Number", disabled=True),
-                        "Invoice Total (Incl)": st.column_config.NumberColumn("Invoice Total (R)", format="R %.2f", disabled=True),
+                        "Co. Reg / Inc Number": st.column_config.TextColumn("Co. Reg / Inc Number", disabled=True),
+                        "Invoice Total (Incl)": st.column_config.NumberColumn("Total (R)", format="R %.2f", disabled=True),
                         "Deposit Required": st.column_config.NumberColumn("Deposit Req. (R)", format="R %.2f", disabled=True),
                         "Amount Paid": st.column_config.NumberColumn("Amount Paid (R)", format="R %.2f", min_value=0.0, step=100.0),
                         "Payment Status": st.column_config.SelectboxColumn("Payment Status", options=["Outstanding", "Partially Paid", "Paid in Full"], required=True),
@@ -220,9 +229,7 @@ def main():
                     key="ledger_editor"
                 )
 
-                # Sync edited dataframe back to session state
                 if st.button("💾 Save Ledger Updates"):
-                    # Recalculate balances before committing back
                     edited_df["Outstanding Balance"] = edited_df["Invoice Total (Incl)"] - edited_df["Amount Paid"]
                     st.session_state.invoice_ledger = edited_df.to_dict(orient="records")
                     st.success("Dashboard ledger successfully updated and synchronized!")
