@@ -1,14 +1,13 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 22:55:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (FULL-PAGE WATERMARK & MATRIX VERIFIED)
+# TIMESTAMP: 2026-10-02 23:06:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (SINGLE PAGE A4, 0.30 WATERMARK, NO HEADER LOGO)
 # ==============================================================================
 
 import os
+import io
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
-)
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
@@ -16,7 +15,7 @@ from reportlab.pdfgen import canvas
 class NumberedCanvas(canvas.Canvas):
     """
     Custom canvas drawing a full-page background logo watermark 
-    with darker opacity (0.20) across the entire printable area.
+    with 0.30 opacity (5x darker/brighter) across the entire A4 canvas.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -27,7 +26,6 @@ class NumberedCanvas(canvas.Canvas):
         self._startPage()
 
     def save(self):
-        num_pages = len(self.pages)
         for page in self.pages:
             self.__dict__.update(page)
             self.draw_watermark()
@@ -39,25 +37,18 @@ class NumberedCanvas(canvas.Canvas):
         logo_path = "mmsalogo.png.jpg"
         if os.path.exists(logo_path):
             try:
-                # 0.20 Opacity (3 shades darker than previous 0.06)
-                self.setFillAlpha(0.20)
+                # 0.30 Opacity (5x darker/brighter than baseline 0.06)
+                self.setFillAlpha(0.30)
                 
-                # Full page printable dimensions (A4 = 595.27 x 841.89)
+                # Full A4 Page Dimensions (595.27 x 841.89 pt)
                 page_w, page_h = 595.27, 841.89
-                margin = 36
-                bg_w = page_w - (margin * 2)
-                bg_h = page_h - (margin * 2)
-                
-                # Centered full section fill
-                x_pos = margin
-                y_pos = margin
                 
                 self.drawImage(
                     logo_path, 
-                    x_pos, 
-                    y_pos, 
-                    width=bg_w, 
-                    height=bg_h, 
+                    0, 
+                    0, 
+                    width=page_w, 
+                    height=page_h, 
                     preserveAspectRatio=True, 
                     mask='auto'
                 )
@@ -67,16 +58,16 @@ class NumberedCanvas(canvas.Canvas):
 
 
 def build_pdf_document(data):
-    import io
     buffer = io.BytesIO()
     
+    # Page setup with narrow margins (20pt = ~7mm) to lock everything onto 1 page
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        rightMargin=36,
-        leftMargin=36,
-        topMargin=36,
-        bottomMargin=36
+        rightMargin=20,
+        leftMargin=20,
+        topMargin=20,
+        bottomMargin=20
     )
 
     story = []
@@ -88,20 +79,13 @@ def build_pdf_document(data):
     LIGHT_BG = colors.HexColor("#F8FAFC")
     BORDER_COLOR = colors.HexColor("#CBD5E1")
 
-    title_style = ParagraphStyle('DocTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=18, leading=22, textColor=PRIMARY_COLOR)
-    sub_title_style = ParagraphStyle('DocSubTitle', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12, textColor=SECONDARY_COLOR)
-    body_style = ParagraphStyle('TableBody', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, leading=11, textColor=PRIMARY_COLOR)
-    body_bold = ParagraphStyle('TableBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=PRIMARY_COLOR)
-    header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.white)
+    title_style = ParagraphStyle('DocTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=15, leading=18, textColor=PRIMARY_COLOR)
+    sub_title_style = ParagraphStyle('DocSubTitle', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, textColor=SECONDARY_COLOR)
+    body_style = ParagraphStyle('TableBody', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9.5, textColor=PRIMARY_COLOR)
+    body_bold = ParagraphStyle('TableBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, textColor=PRIMARY_COLOR)
+    header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white)
 
-    # 1. Header Logo (Centered 45px height, 5px space below) & Supplier Info
-    logo_path = "mmsalogo.png.jpg"
-    if os.path.exists(logo_path):
-        logo_img = Image(logo_path, width=45, height=45)
-        logo_img.hAlign = 'CENTER'
-        story.append(logo_img)
-        story.append(Spacer(1, 5))
-
+    # 1. Supplier Details Header (No Header Logo)
     supplier = data.get('supplier_details', {
         "entity": "IRESQ LA LUCIA PTY LTD",
         "trading": "T/A MR MOBILE SA",
@@ -130,10 +114,10 @@ def build_pdf_document(data):
             Paragraph("", sub_title_style)
         ]
     ]
-    header_table = Table(header_data, colWidths=[270, 252])
-    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('SPAN', (1,0), (1,1)), ('BOTTOMPADDING', (0,0), (-1,-1), 2)]))
+    header_table = Table(header_data, colWidths=[285, 270])
+    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP'), ('SPAN', (1,0), (1,1)), ('BOTTOMPADDING', (0,0), (-1,-1), 0)]))
     story.append(header_table)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 4))
 
     # 2. Client Details Table
     client = data.get('client', {})
@@ -148,10 +132,10 @@ def build_pdf_document(data):
             body_style
         )]
     ]
-    client_table = Table(client_data, colWidths=[522])
-    client_table.setStyle(TableStyle([('BACKGROUND', (0,0), (0,0), PRIMARY_COLOR), ('BACKGROUND', (0,1), (0,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('PADDING', (0,0), (-1,-1), 6)]))
+    client_table = Table(client_data, colWidths=[555])
+    client_table.setStyle(TableStyle([('BACKGROUND', (0,0), (0,0), PRIMARY_COLOR), ('BACKGROUND', (0,1), (0,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(client_table)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 4))
 
     # 3. Document Meta Details Table
     meta_headers = [Paragraph("INVOICE NO", header_style), Paragraph("TAX REFERENCE", header_style), Paragraph("DATE", header_style), Paragraph("SHIPPING", header_style), Paragraph("DUE DATE", header_style), Paragraph("VALIDITY", header_style), Paragraph("US$/ZAR FX", header_style)]
@@ -164,14 +148,14 @@ def build_pdf_document(data):
         Paragraph(str(data.get('validity', '')), body_style),
         Paragraph(f"<b>{data.get('exchange_rate_display', '')}</b>", body_bold)
     ]
-    meta_table = Table([meta_headers, meta_values], colWidths=[75, 75, 70, 75, 80, 65, 82])
-    meta_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), SECONDARY_COLOR), ('BACKGROUND', (0,1), (-1,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 5)]))
+    meta_table = Table([meta_headers, meta_values], colWidths=[80, 80, 75, 80, 85, 70, 85])
+    meta_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), SECONDARY_COLOR), ('BACKGROUND', (0,1), (-1,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(meta_table)
-    story.append(Spacer(1, 12))
-
-    # 4. Commercial Line Items
-    story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", body_bold))
     story.append(Spacer(1, 4))
+
+    # 4. Commercial Line Items Specification
+    story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", body_bold))
+    story.append(Spacer(1, 2))
 
     line_headers = [Paragraph("Bespoke Product Description", header_style), Paragraph("Qty", header_style), Paragraph("Unit Price<br/>(Excl. VAT)", header_style), Paragraph("Net Subtotal<br/>(Excl. VAT)", header_style), Paragraph("Total Price<br/>(Incl. VAT)", header_style)]
     line_rows = [line_headers]
@@ -198,17 +182,17 @@ def build_pdf_document(data):
         Paragraph(f"<b>R {grand_excl:,.2f}</b>", body_bold),
         Paragraph(f"<b>R {grand_incl:,.2f}</b>", body_bold)
     ])
-    line_table = Table(line_rows, colWidths=[202, 55, 85, 90, 90])
-    line_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), PRIMARY_COLOR), ('BACKGROUND', (0,-1), (-1,-1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 6)]))
+    line_table = Table(line_rows, colWidths=[225, 55, 90, 90, 95])
+    line_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), PRIMARY_COLOR), ('BACKGROUND', (0,-1), (-1,-1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(line_table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 4))
 
     # 5. Contractual Milestone Payment Schedule
     tranche1 = grand_incl * 0.50
     tranche2 = grand_incl * 0.50
 
     story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", body_bold))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 2))
 
     sched_headers = [Paragraph("Payment Milestone Tranche", header_style), Paragraph("Share %", header_style), Paragraph("Net Value<br/>(Excl. VAT)", header_style), Paragraph("Grand Total<br/>(Incl. VAT)", header_style)]
     sched_rows = [
@@ -216,17 +200,17 @@ def build_pdf_document(data):
         [Paragraph("<b>TRANCHE 1: STARTUP DEPOSIT</b><br/>Required to secure materials & commerce factory assembly runs.", body_style), Paragraph("50%", body_style), Paragraph(f"R {tranche1 / 1.15:,.2f}", body_style), Paragraph(f"R {tranche1:,.2f}", body_style)],
         [Paragraph("<b>TRANCHE 2: PORT RELEASE BALANCE</b><br/>Payable post-inspection, prior to loading in China.", body_style), Paragraph("50%", body_style), Paragraph(f"R {tranche2 / 1.15:,.2f}", body_style), Paragraph(f"R {tranche2:,.2f}*", body_style)]
     ]
-    sched_table = Table(sched_rows, colWidths=[252, 60, 105, 105])
-    sched_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), SECONDARY_COLOR), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 6)]))
+    sched_table = Table(sched_rows, colWidths=[265, 60, 115, 115])
+    sched_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), SECONDARY_COLOR), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(sched_table)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 4))
 
     # Total Due Banner
-    due_banner_data = [[Paragraph(f"<font color='#B91C1C'><b>TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)</b></font><br/><font size=12><b>R {tranche1:,.2f}</b></font>", ParagraphStyle('DueBanner', parent=styles['Normal'], alignment=1, fontSize=10, leading=14))]]
-    due_banner_table = Table(due_banner_data, colWidths=[522])
-    due_banner_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FEF2F2")), ('BOX', (0,0), (-1,-1), 1, ACCENT_COLOR), ('PADDING', (0,0), (-1,-1), 8), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    due_banner_data = [[Paragraph(f"<font color='#B91C1C'><b>TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)</b></font><br/><font size=10><b>R {tranche1:,.2f}</b></font>", ParagraphStyle('DueBanner', parent=styles['Normal'], alignment=1, fontSize=8.5, leading=11))]]
+    due_banner_table = Table(due_banner_data, colWidths=[555])
+    due_banner_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FEF2F2")), ('BOX', (0,0), (-1,-1), 1, ACCENT_COLOR), ('PADDING', (0,0), (-1,-1), 4), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
     story.append(due_banner_table)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 4))
 
     # 6. Payment & FX Terms
     fx_terms_text = (
@@ -235,10 +219,10 @@ def build_pdf_document(data):
         f"The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) "
         f"rate at the time of final port release payment."
     )
-    fx_table = Table([[Paragraph(fx_terms_text, body_style)]], colWidths=[522])
-    fx_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FFFBEB")), ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#F59E0B")), ('PADDING', (0,0), (-1,-1), 6)]))
+    fx_table = Table([[Paragraph(fx_terms_text, body_style)]], colWidths=[555])
+    fx_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FFFBEB")), ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#F59E0B")), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(fx_table)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 4))
 
     # 7. Banking Details Table
     bank_p = data.get('bank_details_primary', {
@@ -265,12 +249,12 @@ def build_pdf_document(data):
             Paragraph(f"<b>Account Name:</b> {bank_s.get('account_name', '')}<br/><b>Bank:</b> {bank_s.get('bank_name', '')}<br/><b>Account Type:</b> {bank_s.get('account_type', '')}<br/><b>Account No:</b> {bank_s.get('account_number', '')}<br/><b>Branch Code:</b> {bank_s.get('branch_code', '')} | <b>SWIFT:</b> {bank_s.get('swift', '')}", body_style)
         ]
     ]
-    bank_table = Table(bank_rows, colWidths=[261, 261])
-    bank_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), PRIMARY_COLOR), ('BACKGROUND', (0,1), (-1,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('PADDING', (0,0), (-1,-1), 6)]))
+    bank_table = Table(bank_rows, colWidths=[277.5, 277.5])
+    bank_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), PRIMARY_COLOR), ('BACKGROUND', (0,1), (-1,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(bank_table)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 4))
 
-    # 8. Statutory Compliance & Logistical Clauses (Proper 2D Matrix)
+    # 8. Statutory Compliance & Logistical Clauses
     compliance_content = [
         [Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", header_style)],
         [Paragraph(
@@ -283,8 +267,8 @@ def build_pdf_document(data):
             body_style
         )]
     ]
-    compliance_table = Table(compliance_content, colWidths=[522])
-    compliance_table.setStyle(TableStyle([('BACKGROUND', (0,0), (0,0), SECONDARY_COLOR), ('BACKGROUND', (0,1), (0,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('PADDING', (0,0), (-1,-1), 6)]))
+    compliance_table = Table(compliance_content, colWidths=[555])
+    compliance_table.setStyle(TableStyle([('BACKGROUND', (0,0), (0,0), SECONDARY_COLOR), ('BACKGROUND', (0,1), (0,1), LIGHT_BG), ('BOX', (0,0), (-1,-1), 1, BORDER_COLOR), ('PADDING', (0,0), (-1,-1), 3)]))
     story.append(KeepTogether(compliance_table))
 
     doc.build(story, canvasmaker=NumberedCanvas)
