@@ -1,7 +1,7 @@
 # ==============================================================================
 # SCRIPT NAME: pdf_engine.py
-# TIMESTAMP: 2026-10-02 16:00:00 SAST
-# STATUS: LOCKED & ENTERPRISE-GRADE (TERMS & CLAUSES FULLY EMBEDDED)
+# TIMESTAMP: 2026-10-02 22:35:00 SAST
+# STATUS: LOCKED & ENTERPRISE-GRADE (FAILSAFE VAR RESOLUTION)
 # ==============================================================================
 
 import os
@@ -81,14 +81,15 @@ def build_pdf_document(data):
         story.append(logo_img)
         story.append(Spacer(1, 5))
 
-    supplier = SUPPLIER_DETAILS if 'SUPPLIER_DETAILS' in globals() else {
+    # Safely pull supplier details from payload, or fallback safely
+    supplier = data.get('supplier_details', {
         "entity": "IRESQ LA LUCIA PTY LTD",
         "trading": "T/A MR MOBILE SA",
         "vat": "4960281899",
         "email": "nisaar@fantastic1.com",
         "address": "58 Paarlshoop Road, Homestead Park, 2092 Johannesburg, South Africa",
         "contact": "068 710 1939 / 082 786 7712"
-    }
+    })
 
     header_data = [
         [
@@ -218,9 +219,10 @@ def build_pdf_document(data):
     story.append(fx_table)
     story.append(Spacer(1, 10))
 
-    # Banking Details
-    bank_p = data.get('bank_details_primary', BANK_DETAILS_PRIMARY)
-    bank_s = data.get('bank_details_secondary', BANK_DETAILS_SECONDARY)
+    # Banking Details - FAILSFAFE RESOLUTION
+    # This prevents the NameError by safely defaulting to empty dictionaries if the payload is missing them.
+    bank_p = data.get('bank_details_primary', {})
+    bank_s = data.get('bank_details_secondary', {})
 
     bank_headers = [Paragraph("OFFICIAL CORPORATE ACCOUNT (FNB 1)", header_style), Paragraph("FRANCHISE BUSINESS ACCOUNT (FNB 2)", header_style)]
     bank_rows = [
