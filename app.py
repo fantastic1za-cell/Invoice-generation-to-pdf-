@@ -4,31 +4,14 @@ import pandas as pd
 from datetime import datetime
 from pdf_engine import build_pdf_document
 from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
-import streamlit as st
 
 # 1. Page Configuration (Must be the first Streamlit command)
 st.set_page_config(
-    page_title="Mr Mobile SA",
-    page_icon="mmsalogo.png",
+    page_title="Mr Mobile SA - Invoice Generator",
+    page_icon="mmsalogo.png.jpg",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# 2. Application Header & Branding
-st.title("Mr Mobile SA — Portal")
-st.markdown("### Enterprise Management & Operations Dashboard")
-st.divider()
-
-# 3. Main Workspace Placeholder
-st.info(
-    "Application successfully initialized. Your custom logo (mmsalogo.png) is active as the browser tab favicon."
-)
-
-# Add your app-specific logic, components, and widgets below this line:
-# example:
-# st.write("Welcome to your dashboard.")
-
-st.set_page_config(page_title="MR MOBILE SA — Commercial Document Engine", layout="wide")
 
 # Initialize Session State Databases
 if "invoices_db" not in st.session_state:
@@ -46,6 +29,16 @@ if "invoices_db" not in st.session_state:
         }
     ]
 
+if "client_database" not in st.session_state:
+    st.session_state.client_database = {
+        "Twenty-Five Star (Pty) Ltd": {
+            "trading_name": "Pedros Distribution Centre DBN",
+            "reg_vat": "Co. Reg: 2022/686760/07 | VAT: 4690317583",
+            "reg_address": "33 Aiken Street, Port Shepstone, KZN, 4240",
+            "del_address": "4-6 Suzuka Road, Westmead, Pinetown, 3608"
+        }
+    }
+
 if "sku_database" not in st.session_state:
     st.session_state.sku_database = {
         "600ml Food Flask": {
@@ -62,11 +55,12 @@ if "sku_database" not in st.session_state:
         }
     }
 
-# Center-aligned Header Title Styling
+# 2. Application Header & Branding (Clear, readable white text)
 st.markdown(
-    "<h1 style='text-align: center; color: #0F172A;'>MR MOBILE SA — Commercial Document & Invoicing Engine</h1>", 
+    "<h1 style='text-align: center; color: #FFFFFF;'>MR MOBILE SA — Commercial Document & Invoicing Engine</h1>", 
     unsafe_allow_html=True
 )
+st.markdown("<p style='text-align: center; color: #94A3B8;'>Enterprise Management & Operations Dashboard</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Multi-tab layout configuration
@@ -105,26 +99,50 @@ with tab1:
     with col_d:
         validity = st.text_input("Validity", value="30 Days")
 
-    # Display Live Exchange Rate Block on Screen
+    # Display Live Exchange Rate Block (Dark Theme Matching Container - No White Block)
     st.markdown("---")
     st.markdown(
-        f"<div style='padding: 10px; background-color: #F1F5F9; border-left: 4px solid #0F172A; border-radius: 4px;'>"
-        f"<b>Live Market Exchange Rate (US$/ZAR):</b> <span style='color: #0F172A; font-size: 16px;'><b>R {base_usd_zar:,.4f}</b></span>"
+        f"<div style='padding: 12px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
+        f"<b>Live Market Exchange Rate (US$/ZAR):</b> <span style='color: #38BDF8; font-size: 16px;'><b>R {base_usd_zar:,.4f}</b></span>"
         f"</div>",
         unsafe_allow_html=True
     )
     st.markdown("---")
 
-    # Client Details
+    # Client Selection Dropdown & Details Management
     st.markdown("### Client & Billing Details")
-    col_e, col_f = st.columns(2)
-    with col_e:
-        client_name = st.text_input("Client Name", value="Twenty-Five Star (Pty) Ltd")
-        trading_name = st.text_input("Trading Name", value="Pedros Distribution Centre DBN")
-        reg_vat = st.text_input("Co. Reg & VAT", value="Co. Reg: 2022/686760/07 | VAT: 4690317583")
-    with col_f:
-        reg_address = st.text_input("Reg Address", value="33 Aiken Street, Port Shepstone, KZN, 4240")
-        del_address = st.text_input("Delivery Address", value="4-6 Suzuka Road, Westmead, Pinetown, 3608")
+    
+    existing_client_options = list(st.session_state.client_database.keys()) + ["+ Add New Client"]
+    selected_client_option = st.selectbox("Select Existing Client or Add New", existing_client_options)
+
+    if selected_client_option == "+ Add New Client":
+        st.info("Enter details for the new client below. They will be saved to your client database.")
+        client_name = st.text_input("Client Name", value="")
+        trading_name = st.text_input("Trading Name", value="")
+        reg_vat = st.text_input("Co. Reg & VAT", value="")
+        reg_address = st.text_input("Reg Address", value="")
+        del_address = st.text_input("Delivery Address", value="")
+        
+        # Save new client if name is provided
+        if client_name and client_name not in st.session_state.client_database:
+            st.session_state.client_database[client_name] = {
+                "trading_name": trading_name,
+                "reg_vat": reg_vat,
+                "reg_address": reg_address,
+                "del_address": del_address
+            }
+    else:
+        client_name = selected_client_option
+        client_info = st.session_state.client_database[client_name]
+        
+        col_e, col_f = st.columns(2)
+        with col_e:
+            st.text_input("Client Name", value=client_name, disabled=True)
+            trading_name = st.text_input("Trading Name", value=client_info["trading_name"])
+            reg_vat = st.text_input("Co. Reg & VAT", value=client_info["reg_vat"])
+        with col_f:
+            reg_address = st.text_input("Reg Address", value=client_info["reg_address"])
+            del_address = st.text_input("Delivery Address", value=client_info["del_address"])
 
     # Line Items & SKU Database Selection
     st.markdown("### Commercial Line-Item Specification")
@@ -290,7 +308,7 @@ with tab2:
                     )
 
                 new_balance = max_val - new_amount_paid
-                st.markdown(f"**Calculated Balance Outstanding:** <span style='color:#B91C1C;'><b>R {new_balance:,.2f}</b></span>", unsafe_allow_html=True)
+                st.markdown(f"**Calculated Balance Outstanding:** <span style='color:#F87171;'><b>R {new_balance:,.2f}</b></span>", unsafe_allow_html=True)
 
                 updated_db.append({
                     "doc_num": inv["doc_num"],
