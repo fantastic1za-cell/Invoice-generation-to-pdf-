@@ -2,14 +2,13 @@
 # SCRIPT MODULE : app.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 11:45:00 SAST
+# TIMESTAMP     : 2026-10-04 11:50:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
 
 import streamlit as st
 import smtplib
-import socket
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -18,43 +17,36 @@ from datetime import date
 import config
 from pdf_engine import generate_sars_pdf
 
-# Page Configuration
+# Page Config
 st.set_page_config(page_title="Mr Mobile SA - Document Engine", page_icon="📱", layout="wide")
 
 st.title("📱 Mr Mobile SA — Enterprise Document & Dispatch Engine")
 
-# Self-Healing Session Guard
-def initialize_and_repair_session():
-    """Verifies session state integrity and auto-repairs corrupted structures."""
-    default_item = {"desc": "600ml Food Flask (Plain SS304 Body Configuration)", "qty": 3000, "price": 155.32}
-    
-    if "items" not in st.session_state or not isinstance(st.session_state.items, list):
-        st.session_state.items = [default_item]
-    else:
-        # Validate that every element inside list is a valid dict
-        repaired_items = []
-        for item in st.session_state.items:
-            if isinstance(item, dict) and "desc" in item and "qty" in item and "price" in item:
-                repaired_items.append(item)
-            else:
-                repaired_items.append(default_item)
-        st.session_state.items = repaired_items if repaired_items else [default_item]
+# Strict Session Initialization (Bypasses Stale Browser Session Cookies)
+DEFAULT_ROW = {"desc": "600ml Food Flask (Plain SS304 Body Configuration)", "qty": 3000, "price": 155.32}
 
-initialize_and_repair_session()
+if "line_items" not in st.session_state or not isinstance(st.session_state.line_items, list):
+    st.session_state.line_items = [DEFAULT_ROW]
+else:
+    # Verify every element inside the list is a valid dict
+    sanitized = []
+    for row in st.session_state.line_items:
+        if isinstance(row, dict) and "desc" in row and "qty" in row and "price" in row:
+            sanitized.append(row)
+    st.session_state.line_items = sanitized if sanitized else [DEFAULT_ROW]
 
-# Sidebar Control
+# Sidebar Controls
 st.sidebar.markdown("### 🔒 System Audit & Controls")
 st.sidebar.success("""
-**Status:** Operational / Flawless Lock  
+**Status:** Operational (Session Key Guarded)  
 **Author:** Nisaar Ally  
-**Timestamp:** 2026-10-04 11:45:00 SAST  
+**Timestamp:** 2026-10-04 11:50:00 SAST  
 **Auto-Backup:** Daily at 23:45 SAST  
 **Sender:** fantastic1za@gmail.com  
 """)
 
-if st.sidebar.button("🔄 Reset / Clear Session Memory"):
-    st.session_state.clear()
-    initialize_and_repair_session()
+if st.sidebar.button("🔄 Reset Application Memory"):
+    st.session_state.line_items = [DEFAULT_ROW]
     st.rerun()
 
 st.sidebar.markdown("---")
@@ -64,50 +56,49 @@ doc_ref = st.sidebar.text_input("Reference Number", value="PI-20261002-02")
 doc_date = st.sidebar.date_input("Document Date", value=date.today())
 
 st.sidebar.markdown("---")
-st.sidebar.header("Client Parameters")
+st.sidebar.header("Client Details")
 client_name = st.sidebar.text_input("Client Name", value="Twenty-Five Star (Pty) Ltd")
 client_vat = st.sidebar.text_input("Client VAT Registration", value="4690317583")
 client_email = st.sidebar.text_input("Client Email Address", value="nisaar@fantastic1.com")
 
-# Main Interface Tabs
 tab1, tab2 = st.tabs(["📄 Document & Email Dispatch Engine", "📊 System Banking & SWIFT Ledger"])
 
 with tab1:
     st.subheader(f"Line Items Specification — {doc_type}")
     
-    # Safe Iteration
-    for idx, item in enumerate(st.session_state.items):
+    # Safe Iteration over line_items
+    for idx, item in enumerate(st.session_state.line_items):
         col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
             item["desc"] = st.text_input(f"Description #{idx+1}", value=str(item.get("desc", "")), key=f"desc_{idx}")
         with col2:
             try:
-                curr_qty = int(item.get("qty", 1))
+                q_val = int(item.get("qty", 1))
             except (ValueError, TypeError):
-                curr_qty = 1
-            item["qty"] = st.number_input(f"Qty #{idx+1}", min_value=1, value=curr_qty, key=f"qty_{idx}")
+                q_val = 1
+            item["qty"] = st.number_input(f"Qty #{idx+1}", min_value=1, value=q_val, key=f"qty_{idx}")
         with col3:
             try:
-                curr_price = float(item.get("price", 0.0))
+                p_val = float(item.get("price", 0.0))
             except (ValueError, TypeError):
-                curr_price = 0.0
-            item["price"] = st.number_input(f"Unit Price (Excl) #{idx+1}", min_value=0.0, value=curr_price, step=10.0, key=f"price_{idx}")
+                p_val = 0.0
+            item["price"] = st.number_input(f"Unit Price (Excl) #{idx+1}", min_value=0.0, value=p_val, step=10.0, key=f"price_{idx}")
 
     col_add, col_rem = st.columns([1, 1])
     with col_add:
         if st.button("➕ Add Line Item"):
-            st.session_state.items.append({"desc": "", "qty": 1, "price": 0.0})
+            st.session_state.line_items.append({"desc": "", "qty": 1, "price": 0.0})
             st.rerun()
     with col_rem:
-        if len(st.session_state.items) > 1:
+        if len(st.session_state.line_items) > 1:
             if st.button("➖ Remove Line Item"):
-                st.session_state.items.pop()
+                st.session_state.line_items.pop()
                 st.rerun()
 
     st.markdown("---")
     
-    # Financial Totals Calculation
-    subtotal = sum(float(i.get("qty", 1)) * float(i.get("price", 0.0)) for i in st.session_state.items)
+    # Financial Calculations
+    subtotal = sum(float(i.get("qty", 1)) * float(i.get("price", 0.0)) for i in st.session_state.line_items)
     vat = subtotal * config.TAX_RATE
     grand_total = subtotal + vat
     deposit = grand_total * 0.50
@@ -120,7 +111,6 @@ with tab1:
 
     st.markdown("---")
 
-    # Document Payload
     invoice_payload = {
         "doc_type": doc_type,
         "invoice_number": doc_ref,
@@ -128,7 +118,7 @@ with tab1:
         "client_name": client_name,
         "client_vat": client_vat,
         "client_email": client_email,
-        "items": st.session_state.items
+        "items": st.session_state.line_items
     }
 
     pdf_bytes = generate_sars_pdf(invoice_payload)
@@ -143,7 +133,7 @@ with tab1:
             use_container_width=True
         )
 
-    # Client Email Dispatch Section
+    # Client Email Section
     st.markdown("### 📧 Direct Client Email Dispatch")
     st.info(f"Target Recipient Address: **{client_email}**")
     
@@ -151,11 +141,11 @@ with tab1:
 
     if st.button("🚀 Send Email to Client", type="primary", use_container_width=True):
         if not email_confirmed:
-            st.error("⚠️️ Please check the confirmation box above to verify the recipient email address before sending.")
+            st.error("⚠️ Please check the confirmation box above to verify the recipient email address before dispatching.")
         elif not client_email or "@" not in client_email:
             st.error("⚠️ Invalid recipient email address specified.")
         else:
-            with st.spinner("Connecting to Gmail SMTP relay (with fallback redundancy) and dispatching document..."):
+            with st.spinner("Connecting to Gmail SMTP relay and dispatching email..."):
                 try:
                     msg = MIMEMultipart()
                     msg['From'] = f"Nisaar Ally <{config.SMTP_SENDER}>"
@@ -181,7 +171,7 @@ with tab1:
                             </ul>
                         </div>
                         
-                        <p>Please refer to the attached PDF document for itemized breakdowns, production milestone terms, and corporate FNB banking parameters.</p>
+                        <p>Please refer to the attached PDF for itemized breakdowns, production milestone terms, and corporate FNB banking parameters.</p>
                         
                         <p>Should you require any further assistance or clarification, please contact me directly using the links below:</p>
                         
@@ -204,7 +194,7 @@ with tab1:
                     attachment['Content-Disposition'] = f'attachment; filename="{doc_ref}.pdf"'
                     msg.attach(attachment)
 
-                    # Redundant SMTP Dispatch (Primary SSL Port 465 -> Fallback STARTTLS Port 587)
+                    # Redundant Dual-Port Connection Engine
                     sent_successfully = False
                     try:
                         server = smtplib.SMTP_SSL(config.SMTP_SERVER, config.SMTP_PRIMARY_PORT, timeout=10)
@@ -212,8 +202,7 @@ with tab1:
                         server.sendmail(config.SMTP_SENDER, client_email, msg.as_string())
                         server.quit()
                         sent_successfully = True
-                    except Exception as primary_error:
-                        # Fallback to Port 587 STARTTLS if SSL Port 465 fails
+                    except Exception as primary_err:
                         try:
                             server = smtplib.SMTP(config.SMTP_SERVER, config.SMTP_FALLBACK_PORT, timeout=10)
                             server.starttls()
@@ -221,8 +210,8 @@ with tab1:
                             server.sendmail(config.SMTP_SENDER, client_email, msg.as_string())
                             server.quit()
                             sent_successfully = True
-                        except Exception as fallback_error:
-                            raise Exception(f"Primary SSL Error: {str(primary_error)} | Fallback STARTTLS Error: {str(fallback_error)}")
+                        except Exception as fallback_err:
+                            raise Exception(f"SSL (465) Error: {str(primary_err)} | STARTTLS (587) Error: {str(fallback_err)}")
 
                     if sent_successfully:
                         st.success(f"✅ Success! {doc_type} successfully emailed to **{client_email}**.")
