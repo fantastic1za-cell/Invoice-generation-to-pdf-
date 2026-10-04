@@ -2,13 +2,14 @@
 # SCRIPT MODULE : app.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 12:05:00 SAST
+# TIMESTAMP     : 2026-10-04 12:15:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
 
 import streamlit as st
 import smtplib
+import pandas as pd
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -18,31 +19,53 @@ import config
 from pdf_engine import generate_sars_pdf
 
 # Page Config
-st.set_page_config(page_title="Mr Mobile SA - Document Engine", page_icon="📱", layout="wide")
+st.set_page_config(page_title="Mr Mobile SA - Enterprise Document Generator", page_icon="📱", layout="wide")
 
-st.title("📱 Mr Mobile SA — Commercial Document Generator")
-st.caption("Enterprise Operational Engine [Locked: 2026-10-04]")
+st.title("📱 Mr Mobile SA — Enterprise Document & Financial Engine")
+st.caption("Operational Engine [Locked: 2026-10-04]")
+
+# Defensively Initialize Session Memory Structures
+if "invoice_items" not in st.session_state:
+    st.session_state.invoice_items = [{"desc": "600ml Food Flask (Plain SS304 Body Configuration)", "qty": 3000, "price": 155.32}]
+
+if "client_database" not in st.session_state:
+    st.session_state.client_database = {
+        "Twenty-Five Star (Pty) Ltd": {"vat": "4690317583", "email": "nisaar@fantastic1.com"},
+        "Phatbuns SA": {"vat": "4982103982", "email": "info@phatbuns.co.za"},
+        "Doorstep Desserts": {"vat": "4120938491", "email": "accounts@doorstepdesserts.co.za"}
+    }
+
+if "processed_ledger" not in st.session_state:
+    st.session_state.processed_ledger = [
+        {"Ref": "PI-20261002-01", "Client": "Twenty-Five Star (Pty) Ltd", "Type": "PRO FORMA TAX INVOICE", "Subtotal": 465960.00, "VAT": 69894.00, "Total": 535854.00, "50% Tranche": 267927.00, "Status": "Deposit Received"},
+        {"Ref": "INV-20260928-04", "Client": "Phatbuns SA", "Type": "TAX INVOICE", "Subtotal": 120000.00, "VAT": 18000.00, "Total": 138000.00, "50% Tranche": 69000.00, "Status": "Fully Settled"},
+        {"Ref": "QUO-20260915-02", "Client": "Doorstep Desserts", "Type": "QUOTATION", "Subtotal": 85000.00, "VAT": 12750.00, "Total": 97750.00, "50% Tranche": 48875.00, "Status": "Awaiting Deposit"}
+    ]
 
 # Sidebar Controls
 st.sidebar.markdown("### 🔒 System Audit & Controls")
 st.sidebar.success("""
 **Status:** Operational  
 **Author:** Nisaar Ally  
-**Timestamp:** 2026-10-04 12:05:00 SAST  
-**Auto-Backup:** Daily at 23:45 SAST  
+**Timestamp:** 2026-10-04 12:15:00 SAST  
+**Auto-Backup:** Active (Daily 23:45 SAST)  
 **Sender:** fantastic1za@gmail.com  
 """)
 
-# Session State Initialization
-if "items" not in st.session_state or not isinstance(st.session_state.items, list):
-    st.session_state.items = [{"desc": "600ml Food Flask (Plain SS304 Body Configuration)", "qty": 3000, "price": 155.32}]
+if st.sidebar.button("🔄 Clear App Cache & Reset Session Memory"):
+    st.session_state.clear()
+    st.rerun()
 
-tab1, tab2 = st.tabs(["📄 Document Generator", "📊 Enterprise Financial Tracking Dashboard"])
+# Main App Navigation
+tab1, tab2 = st.tabs(["📄 Commercial Document Generator", "📊 Financial Tracking Dashboard & Outstanding Balance Ledger"])
 
+# ------------------------------------------------------------------------------
+# TAB 1: DOCUMENT GENERATOR & CLIENT CAPTURE
+# ------------------------------------------------------------------------------
 with tab1:
-    st.subheader("Configure & Generate Commercial Document")
+    st.subheader("Configure Commercial Document")
 
-    # Document Header Parameters
+    # Document Header Fields
     col_d1, col_d2, col_d3 = st.columns(3)
     with col_d1:
         doc_type = st.selectbox("Document Type", ["PRO FORMA TAX INVOICE", "TAX INVOICE", "QUOTATION"])
@@ -54,21 +77,40 @@ with tab1:
     doc_ref = st.text_input("Document Number / Ref", value="PI-20261002-02")
 
     st.markdown("---")
-    st.subheader("Client & Billing Details")
-    
-    # Client Details Capture Fields (Restored)
-    client_name = st.text_input("Client Name", value="Twenty-Five Star (Pty) Ltd")
-    col_c1, col_c2 = st.columns(2)
-    with col_c1:
-        client_vat = st.text_input("Client VAT / Reg Number", value="4690317583")
-    with col_c2:
-        client_email = st.text_input("Client Email Address", value="nisaar@fantastic1.com")
+    st.subheader("Client Selection & New Client Capture")
+
+    # Client Selection Engine
+    client_list = list(st.session_state.client_database.keys()) + ["➕ Add New Client"]
+    selected_client_option = st.selectbox("Select Existing Client or Add New", client_list)
+
+    if selected_client_option == "➕ Add New Client":
+        c_col1, c_col2, c_col3 = st.columns(3)
+        with c_col1:
+            client_name = st.text_input("New Client Name", value="")
+        with c_col2:
+            client_vat = st.text_input("New Client VAT / Reg Number", value="")
+        with c_col3:
+            client_email = st.text_input("New Client Email Address", value="")
+
+        if st.button("💾 Save New Client to Database") and client_name:
+            st.session_state.client_database[client_name] = {"vat": client_vat, "email": client_email}
+            st.success(f"Client '{client_name}' successfully added to database!")
+            st.rerun()
+    else:
+        client_name = selected_client_option
+        client_info = st.session_state.client_database.get(client_name, {})
+        
+        c_col1, c_col2 = st.columns(2)
+        with c_col1:
+            client_vat = st.text_input("Client VAT / Reg Number", value=client_info.get("vat", ""))
+        with c_col2:
+            client_email = st.text_input("Client Email Address", value=client_info.get("email", ""))
 
     st.markdown("---")
     st.subheader(f"Line Items Specification — {doc_type}")
-    
-    # Line Item Rows
-    for idx, item in enumerate(st.session_state.items):
+
+    # Line Items Generator
+    for idx, item in enumerate(st.session_state.invoice_items):
         item["desc"] = st.text_input(f"Description #{idx+1}", value=str(item.get("desc", "")), key=f"desc_{idx}")
         col_q, col_p = st.columns(2)
         with col_q:
@@ -79,18 +121,18 @@ with tab1:
     col_add, col_rem = st.columns([1, 1])
     with col_add:
         if st.button("➕ Add Line Item"):
-            st.session_state.items.append({"desc": "", "qty": 1, "price": 0.0})
+            st.session_state.invoice_items.append({"desc": "", "qty": 1, "price": 0.0})
             st.rerun()
     with col_rem:
-        if len(st.session_state.items) > 1:
+        if len(st.session_state.invoice_items) > 1:
             if st.button("➖ Remove Line Item"):
-                st.session_state.items.pop()
+                st.session_state.invoice_items.pop()
                 st.rerun()
 
     st.markdown("---")
-    
-    # Financial Totals Calculation
-    subtotal = sum(float(i.get("qty", 1)) * float(i.get("price", 0.0)) for i in st.session_state.items)
+
+    # Financial Totals
+    subtotal = sum(float(i.get("qty", 1)) * float(i.get("price", 0.0)) for i in st.session_state.invoice_items)
     vat = subtotal * config.TAX_RATE
     grand_total = subtotal + vat
     deposit = grand_total * 0.50
@@ -103,7 +145,7 @@ with tab1:
 
     st.markdown("---")
 
-    # Document Payload Assembly
+    # PDF Payload
     invoice_payload = {
         "doc_type": doc_type,
         "invoice_number": doc_ref,
@@ -111,7 +153,7 @@ with tab1:
         "client_name": client_name,
         "client_vat": client_vat,
         "client_email": client_email,
-        "items": st.session_state.items
+        "items": st.session_state.invoice_items
     }
 
     pdf_bytes = generate_sars_pdf(invoice_payload)
@@ -126,10 +168,26 @@ with tab1:
             use_container_width=True
         )
 
-    # Email Dispatch Interface with Address Confirmation
+    with col_btn2:
+        if st.button("💾 Record Entry into Tracking Dashboard"):
+            new_entry = {
+                "Ref": doc_ref,
+                "Client": client_name,
+                "Type": doc_type,
+                "Subtotal": subtotal,
+                "VAT": vat,
+                "Total": grand_total,
+                "50% Tranche": deposit,
+                "Status": "Awaiting Deposit"
+            }
+            st.session_state.processed_ledger.append(new_entry)
+            st.success(f"Document '{doc_ref}' logged to Tracking Dashboard!")
+
+    st.markdown("---")
+    # Email Dispatch Block
     st.markdown("### 📧 Direct Client Email Dispatch")
     st.info(f"Target Recipient Address: **{client_email}**")
-    
+
     email_confirmed = st.checkbox(f"I confirm that '{client_email}' is the correct and verified client email address.")
 
     if st.button("🚀 Send Email to Client", type="primary", use_container_width=True):
@@ -180,7 +238,7 @@ with tab1:
                     </body>
                     </html>
                     """
-                    
+
                     msg.attach(MIMEText(html_body, 'html'))
 
                     attachment = MIMEApplication(pdf_bytes, Name=f"{doc_ref}.pdf")
@@ -197,6 +255,30 @@ with tab1:
                 except Exception as e:
                     st.error(f"❌ Failed to send email: {str(e)}")
 
+# ------------------------------------------------------------------------------
+# TAB 2: FINANCIAL TRACKING DASHBOARD & OUTSTANDING BALANCES
+# ------------------------------------------------------------------------------
 with tab2:
-    st.subheader("System Banking & Compliance Ledger")
+    st.subheader("📊 Enterprise Financial Tracking & Outstanding Balance Ledger")
+
+    df_ledger = pd.DataFrame(st.session_state.processed_ledger)
+
+    # Metrics Summary Bar
+    total_processed = df_ledger["Total"].sum()
+    total_deposits = df_ledger["50% Tranche"].sum()
+    total_outstanding = total_processed - total_deposits
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Processed Volume", f"R {total_processed:,.2f}")
+    m2.metric("Total Deposit Tranches (50%)", f"R {total_deposits:,.2f}")
+    m3.metric("Outstanding Balance Treasury", f"R {total_outstanding:,.2f}")
+
+    st.markdown("---")
+    st.subheader("Commercial Transactions Ledger")
+
+    # Format Table for Display
+    st.dataframe(df_ledger, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("System Banking Parameters")
     st.json(config.BANKING_DETAILS)
