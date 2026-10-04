@@ -2,7 +2,7 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 12:05:00 SAST
+# TIMESTAMP     : 2026-10-04 12:15:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
