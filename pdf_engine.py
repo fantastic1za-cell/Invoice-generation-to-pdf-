@@ -2,7 +2,7 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 15:45:00 SAST
+# TIMESTAMP     : 2026-10-04 15:50:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine - Clean Canvas)
 # ==============================================================================
@@ -16,10 +16,10 @@ from reportlab.lib import colors
 import config
 
 def generate_sars_pdf(invoice_payload):
-    """Generates exact single-page A4 PDF without watermarks matching exact specifications."""
+    """Generates exact single-page A4 PDF without watermarks matching SARS compliance."""
     buffer = BytesIO()
     
-    # Strict A4 sizing with 15pt margins (Printable width: 565.27pt)
+    # Printable width: 565.27pt on A4 with 15pt margins
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -31,7 +31,7 @@ def generate_sars_pdf(invoice_payload):
 
     story = []
 
-    # Strict Palette Definitions
+    # Palette Definitions
     DARK_NAVY = colors.HexColor("#1A2B4C")
     HEADER_GREY = colors.HexColor("#2C3E50")
     LIGHT_GREY_BG = colors.HexColor("#F4F6F7")
@@ -40,7 +40,7 @@ def generate_sars_pdf(invoice_payload):
     RED_BANNER_BG = colors.HexColor("#FDEDEC")
     RED_BANNER_BORDER = colors.HexColor("#E74C3C")
 
-    # Typography
+    # Typography Styles
     title_style = ParagraphStyle('DocTitle', fontName='Helvetica-Bold', fontSize=18, leading=20, textColor=colors.black)
     header_right = ParagraphStyle('HeadRight', fontName='Helvetica', fontSize=7.5, leading=9.5, alignment=2, textColor=colors.HexColor("#333333"))
     
@@ -53,7 +53,7 @@ def generate_sars_pdf(invoice_payload):
     sec_head = ParagraphStyle('SecHead', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.black)
     banner_text = ParagraphStyle('BannerTxt', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=1, textColor=colors.HexColor("#900C3F"))
 
-    # Extract Data Payload Safely
+    # Safely Extract Payload Parameters
     doc_type = str(invoice_payload.get("doc_type", "PRO FORMA TAX INVOICE"))
     doc_num = str(invoice_payload.get("invoice_number", "PI-20261002-02"))
     doc_date = str(invoice_payload.get("date", "2026-10-02"))
@@ -65,7 +65,7 @@ def generate_sars_pdf(invoice_payload):
     reg_address = str(invoice_payload.get("reg_address", "33 Aiken Street, Port Shepstone, KZN, 4240"))
     delivery_address = str(invoice_payload.get("delivery_address", "4-6 Suzuka Road, Westmead, Pinetown, 3608"))
 
-    # 1. TOP HEADER & SUPPLIER DETAILS
+    # 1. Header Block
     header_left_text = f"<b>{doc_type}</b><br/><font size=7 color='#555555'>Official Commercial Document | SARS VAT Compliant</font>"
     header_right_text = f"<b>SUPPLIER DETAILS</b><br/>" \
                          f"{config.COMPANY_NAME}<br/>" \
@@ -80,7 +80,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(top_table)
     story.append(Spacer(1, 4))
 
-    # 2. CLIENT & BILLING DETAILS BOX
+    # 2. Client Details Block
     client_box_text = f"<b>CLIENT & BILLING DETAILS</b><br/>" \
                       f"<b>Client Name:</b> {client_name}<br/>" \
                       f"<b>Trading Name:</b> {trading_name}<br/>" \
@@ -97,17 +97,9 @@ def generate_sars_pdf(invoice_payload):
     story.append(client_table)
     story.append(Spacer(1, 4))
 
-    # 3. TRANSACTION METADATA BAR (7 Columns - Total 565pt)
+    # 3. Transaction Metadata Bar
     meta_headers = ["INVOICE NO", "TAX REFERENCE", "DATE", "SHIPPING", "DUE DATE", "VALIDITY", "US$/ZAR FX"]
-    meta_values = [
-        doc_num,
-        config.VAT_NUMBER,
-        doc_date,
-        shipping_mode,
-        "Immediate (Upon Receipt)",
-        "30 days",
-        "R 16.67"
-    ]
+    meta_values = [doc_num, config.VAT_NUMBER, doc_date, shipping_mode, "Immediate (Upon Receipt)", "30 days", "R 16.67"]
 
     meta_data = [
         [Paragraph(f"<b>{h}</b>", th_center) for h in meta_headers],
@@ -125,7 +117,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(meta_table)
     story.append(Spacer(1, 6))
 
-    # 4. COMMERCIAL LINE-ITEM SPECIFICATION TABLE
+    # 4. Line Items Table
     story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", sec_head))
     story.append(Spacer(1, 2))
 
@@ -163,7 +155,6 @@ def generate_sars_pdf(invoice_payload):
                 Paragraph(f"R {tot:,.2f}", td_style)
             ])
 
-    # Summary Row
     item_rows.append([
         Paragraph("<b>Combined Program Totals (MOQ Run)</b>", td_bold),
         Paragraph(f"<b>{tot_qty:,}</b>", td_bold),
@@ -183,7 +174,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(items_table)
     story.append(Spacer(1, 6))
 
-    # 5. CONTRACTUAL MILESTONE PAYMENT SCHEDULE TABLE
+    # 5. Milestone Payment Schedule
     story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", sec_head))
     story.append(Spacer(1, 2))
 
@@ -223,7 +214,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(sched_table)
     story.append(Spacer(1, 5))
 
-    # 6. TOTAL AMOUNT NOW DUE BANNER (Red Highlight Box)
+    # 6. Total Amount Due Box
     due_text = f"TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)<br/><b>R {tranche1_tot:,.2f}</b>"
     due_table = Table([[Paragraph(due_text, banner_text)]], colWidths=[565])
     due_table.setStyle(TableStyle([
@@ -235,7 +226,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(due_table)
     story.append(Spacer(1, 5))
 
-    # 7. PAYMENT & FOREIGN EXCHANGE TERMS BANNER (Gold Highlight Box)
+    # 7. FX Terms Box
     fx_text = f"<font size=7 color='#7D6608'><b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit (Tranche 1: R {tranche1_tot:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) rate at the time of final port release payment.</font>"
     fx_table = Table([[Paragraph(fx_text, td_style)]], colWidths=[565])
     fx_table.setStyle(TableStyle([
@@ -246,7 +237,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(fx_table)
     story.append(Spacer(1, 5))
 
-    # 8. DUAL FNB BANKING TABLE (Explicit SWIFT Code on BOTH Accounts)
+    # 8. Dual FNB Banking Details Table
     fnb1 = config.BANKING_DETAILS.get("PRIMARY_ACCOUNT", {})
     fnb2 = config.BANKING_DETAILS.get("SECONDARY_ACCOUNT", {})
 
@@ -280,7 +271,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(bank_table)
     story.append(Spacer(1, 5))
 
-    # 9. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES
+    # 9. Statutory Compliance & Logistical Clauses
     story.append(Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", sec_head))
     story.append(Spacer(1, 2))
 
@@ -293,7 +284,7 @@ def generate_sars_pdf(invoice_payload):
     ]))
     story.append(clause_table)
 
-    # Pure Document Build (No Watermark Canvas)
+    # Render Document without Canvas Watermark
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
