@@ -2,9 +2,9 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 15:40:00 SAST
+# TIMESTAMP     : 2026-10-04 15:45:00 SAST
 # LOCKED BY     : Nisaar Ally
-# STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
+# STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine - Clean Canvas)
 # ==============================================================================
 
 from io import BytesIO
@@ -15,12 +15,11 @@ from reportlab.lib import colors
 
 import config
 
-
 def generate_sars_pdf(invoice_payload):
-    """Generates exact single-page A4 PDF without watermark matching exact specifications."""
+    """Generates exact single-page A4 PDF without watermarks matching exact specifications."""
     buffer = BytesIO()
     
-    # 595.27 x 841.89 pt A4 size with 15pt margins (Printable width: 565.27pt)
+    # Strict A4 sizing with 15pt margins (Printable width: 565.27pt)
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -54,7 +53,7 @@ def generate_sars_pdf(invoice_payload):
     sec_head = ParagraphStyle('SecHead', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.black)
     banner_text = ParagraphStyle('BannerTxt', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=1, textColor=colors.HexColor("#900C3F"))
 
-    # Safely Extract Data Payload
+    # Extract Data Payload Safely
     doc_type = str(invoice_payload.get("doc_type", "PRO FORMA TAX INVOICE"))
     doc_num = str(invoice_payload.get("invoice_number", "PI-20261002-02"))
     doc_date = str(invoice_payload.get("date", "2026-10-02"))
@@ -294,7 +293,7 @@ def generate_sars_pdf(invoice_payload):
     ]))
     story.append(clause_table)
 
-    # Build document (Standard canvas, no watermark)
+    # Pure Document Build (No Watermark Canvas)
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
