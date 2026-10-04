@@ -2,7 +2,7 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 15:18:00 SAST
+# TIMESTAMP     : 2026-10-04 15:30:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
@@ -17,7 +17,7 @@ from reportlab.pdfgen import canvas
 import config
 
 class WatermarkCanvas(canvas.Canvas):
-    """Custom canvas rendering diagonal background watermark matching Photo 1."""
+    """Renders exact diagonal background watermark matching PI-20261002-02 final.pdf."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pages = []
@@ -35,29 +35,30 @@ class WatermarkCanvas(canvas.Canvas):
 
     def draw_watermark(self):
         self.saveState()
-        self.setFillColor(colors.HexColor("#EAEAEA"))
-        self.setFont("Helvetica-Bold", 85)
+        self.setFillColor(colors.HexColor("#EDEDED"))
+        self.setFont("Helvetica-Bold", 82)
         self.rotate(28)
-        self.drawString(100, 200, "Mr Mobile")
+        self.drawString(110, 210, "Mr Mobile")
         self.restoreState()
 
 
 def generate_sars_pdf(invoice_payload):
-    """Generates complete SARS VAT Act Section 20 PDF layout as shown in Photo 1."""
+    """Generates exact pixel-perfect single-page A4 PDF matching PI-20261002-02 final.pdf."""
     buffer = BytesIO()
+    
+    # 595.27 x 841.89 pt A4 size with tight 15pt margins (Printable width: 565.27pt)
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        leftMargin=18,
-        rightMargin=18,
-        topMargin=18,
-        bottomMargin=18
+        leftMargin=15,
+        rightMargin=15,
+        topMargin=15,
+        bottomMargin=15
     )
 
     story = []
-    styles = getSampleStyleSheet()
 
-    # Color Definitions from Photo 1
+    # Hex Colors
     DARK_NAVY = colors.HexColor("#1A2B4C")
     HEADER_GREY = colors.HexColor("#2C3E50")
     LIGHT_GREY_BG = colors.HexColor("#F4F6F7")
@@ -68,17 +69,18 @@ def generate_sars_pdf(invoice_payload):
 
     # Typography Styles
     title_style = ParagraphStyle('DocTitle', fontName='Helvetica-Bold', fontSize=18, leading=20, textColor=colors.black)
-    title_sub = ParagraphStyle('DocSub', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor("#555555"))
     header_right = ParagraphStyle('HeadRight', fontName='Helvetica', fontSize=7.5, leading=9.5, alignment=2, textColor=colors.HexColor("#333333"))
     
     th_style = ParagraphStyle('TH', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white)
-    td_style = ParagraphStyle('TD', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor("#111111"))
-    td_bold = ParagraphStyle('TDBold', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.HexColor("#111111"))
+    th_center = ParagraphStyle('THC', fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, alignment=1, textColor=colors.white)
+    td_style = ParagraphStyle('TD', fontName='Helvetica', fontSize=7.5, leading=9.5, textColor=colors.HexColor("#111111"))
+    td_center = ParagraphStyle('TDC', fontName='Helvetica', fontSize=7.5, leading=9.5, alignment=1, textColor=colors.HexColor("#111111"))
+    td_bold = ParagraphStyle('TDBold', fontName='Helvetica-Bold', fontSize=7.5, leading=9.5, textColor=colors.HexColor("#111111"))
     
     sec_head = ParagraphStyle('SecHead', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.black)
     banner_text = ParagraphStyle('BannerTxt', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=1, textColor=colors.HexColor("#900C3F"))
 
-    # Extract Data Payload Safely
+    # Safely extract payload parameters
     doc_type = str(invoice_payload.get("doc_type", "PRO FORMA TAX INVOICE"))
     doc_num = str(invoice_payload.get("invoice_number", "PI-20261002-02"))
     doc_date = str(invoice_payload.get("date", "2026-10-02"))
@@ -90,7 +92,7 @@ def generate_sars_pdf(invoice_payload):
     reg_address = str(invoice_payload.get("reg_address", "33 Aiken Street, Port Shepstone, KZN, 4240"))
     delivery_address = str(invoice_payload.get("delivery_address", "4-6 Suzuka Road, Westmead, Pinetown, 3608"))
 
-    # 1. HEADER SECTION
+    # 1. TOP HEADER & SUPPLIER DETAILS
     header_left_text = f"<b>{doc_type}</b><br/><font size=7 color='#555555'>Official Commercial Document | SARS VAT Compliant</font>"
     header_right_text = f"<b>SUPPLIER DETAILS</b><br/>" \
                          f"{config.COMPANY_NAME}<br/>" \
@@ -100,10 +102,10 @@ def generate_sars_pdf(invoice_payload):
                          f"{config.SUPPLIER_ADDRESS}<br/>" \
                          f"<b>Contact:</b> <a href='tel:+27687101939' color='#0066cc'>068 710 1939</a> / <a href='https://wa.me/27827867712' color='#25D366'>082 786 7712 (WhatsApp)</a>"
 
-    top_table = Table([[Paragraph(header_left_text, title_style), Paragraph(header_right_text, header_right)]], colWidths=[280, 276])
+    top_table = Table([[Paragraph(header_left_text, title_style), Paragraph(header_right_text, header_right)]], colWidths=[285, 280])
     top_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
     story.append(top_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
 
     # 2. CLIENT & BILLING DETAILS BOX
     client_box_text = f"<b>CLIENT & BILLING DETAILS</b><br/>" \
@@ -113,16 +115,16 @@ def generate_sars_pdf(invoice_payload):
                       f"<b>Reg Address:</b> {reg_address}<br/>" \
                       f"<b>Delivery Addr:</b> {delivery_address}"
 
-    client_table = Table([[Paragraph(client_box_text, td_style)]], colWidths=[556])
+    client_table = Table([[Paragraph(client_box_text, td_style)]], colWidths=[565])
     client_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), LIGHT_GREY_BG),
         ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#BDC3C7")),
-        ('PADDING', (0,0), (-1,-1), 5),
+        ('PADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(client_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
 
-    # 3. TRANSACTION METADATA BAR (7 Columns)
+    # 3. TRANSACTION METADATA BAR (7 Columns - Total 565pt)
     meta_headers = ["INVOICE NO", "TAX REFERENCE", "DATE", "SHIPPING", "DUE DATE", "VALIDITY", "US$/ZAR FX"]
     meta_values = [
         doc_num,
@@ -135,25 +137,24 @@ def generate_sars_pdf(invoice_payload):
     ]
 
     meta_data = [
-        [Paragraph(f"<b>{h}</b>", th_style) for h in meta_headers],
-        [Paragraph(v, td_style) for v in meta_values]
+        [Paragraph(f"<b>{h}</b>", th_center) for h in meta_headers],
+        [Paragraph(v, td_center) for v in meta_values]
     ]
 
-    meta_table = Table(meta_data, colWidths=[80, 80, 65, 75, 95, 80, 81])
+    meta_table = Table(meta_data, colWidths=[80, 80, 65, 75, 105, 80, 80])
     meta_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), HEADER_GREY),
         ('BACKGROUND', (0,1), (-1,1), LIGHT_GREY_BG),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#BDC3C7")),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 4),
+        ('PADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(meta_table)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     # 4. COMMERCIAL LINE-ITEM SPECIFICATION TABLE
     story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", sec_head))
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 2))
 
     raw_items = invoice_payload.get("items", [])
     item_rows = [[
@@ -198,20 +199,20 @@ def generate_sars_pdf(invoice_payload):
         Paragraph(f"<b>R {tot_grand:,.2f}</b>", td_bold)
     ])
 
-    items_table = Table(item_rows, colWidths=[246, 50, 80, 90, 90])
+    items_table = Table(item_rows, colWidths=[255, 50, 80, 90, 90])
     items_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), DARK_NAVY),
         ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor("#EAECEE")),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#BDC3C7")),
-        ('PADDING', (0,0), (-1,-1), 4),
+        ('PADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(items_table)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     # 5. CONTRACTUAL MILESTONE PAYMENT SCHEDULE TABLE
     story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", sec_head))
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 2))
 
     tranche1_sub = tot_subtotal * 0.50
     tranche1_tot = tot_grand * 0.50
@@ -226,53 +227,53 @@ def generate_sars_pdf(invoice_payload):
             Paragraph("<b>Grand Total<br/>(Incl. VAT)</b>", th_style)
         ],
         [
-            Paragraph("<b>TRANCHE 1: STARTUP DEPOSIT</b><br/><font size=7 color='#555555'>Required to secure materials & commerce factory assembly runs.</font>", td_style),
+            Paragraph("<b>TRANCHE 1: STARTUP DEPOSIT</b><br/><font size=6.5 color='#555555'>Required to secure materials & commerce factory assembly runs.</font>", td_style),
             Paragraph("50%", td_style),
             Paragraph(f"R {tranche1_sub:,.2f}", td_style),
             Paragraph(f"R {tranche1_tot:,.2f}", td_style)
         ],
         [
-            Paragraph("<b>TRANCHE 2: PORT RELEASE BALANCE</b><br/><font size=7 color='#555555'>Payable post-inspection, prior to loading in China.</font>", td_style),
+            Paragraph("<b>TRANCHE 2: PORT RELEASE BALANCE</b><br/><font size=6.5 color='#555555'>Payable post-inspection, prior to loading in China.</font>", td_style),
             Paragraph("50%", td_style),
             Paragraph(f"R {tranche2_sub:,.2f}", td_style),
             Paragraph(f"R {tranche2_tot:,.2f}*", td_style)
         ]
     ]
 
-    sched_table = Table(sched_rows, colWidths=[276, 60, 110, 110])
+    sched_table = Table(sched_rows, colWidths=[285, 60, 110, 110])
     sched_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), HEADER_GREY),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#BDC3C7")),
-        ('PADDING', (0,0), (-1,-1), 4),
+        ('PADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(sched_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 5))
 
     # 6. TOTAL AMOUNT NOW DUE BANNER (Red Highlight Box)
     due_text = f"TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)<br/><b>R {tranche1_tot:,.2f}</b>"
-    due_table = Table([[Paragraph(due_text, banner_text)]], colWidths=[556])
+    due_table = Table([[Paragraph(due_text, banner_text)]], colWidths=[565])
     due_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), RED_BANNER_BG),
         ('BOX', (0,0), (-1,-1), 1, RED_BANNER_BORDER),
-        ('PADDING', (0,0), (-1,-1), 6),
+        ('PADDING', (0,0), (-1,-1), 5),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
     ]))
     story.append(due_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 5))
 
     # 7. PAYMENT & FOREIGN EXCHANGE TERMS BANNER (Gold Highlight Box)
-    fx_text = f"<font size=7.5 color='#7D6608'><b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit (Tranche 1: R {tranche1_tot:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) rate at the time of final port release payment.</font>"
-    fx_table = Table([[Paragraph(fx_text, td_style)]], colWidths=[556])
+    fx_text = f"<font size=7 color='#7D6608'><b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit (Tranche 1: R {tranche1_tot:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) rate at the time of final port release payment.</font>"
+    fx_table = Table([[Paragraph(fx_text, td_style)]], colWidths=[565])
     fx_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), GOLD_BANNER_BG),
         ('BOX', (0,0), (-1,-1), 0.8, GOLD_BANNER_BORDER),
-        ('PADDING', (0,0), (-1,-1), 5),
+        ('PADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(fx_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 5))
 
-    # 8. OFFICIAL DUAL FNB BANKING TABLE
+    # 8. DUAL FNB BANKING TABLE (Explicit SWIFT Code on BOTH Accounts)
     fnb1 = config.BANKING_DETAILS.get("PRIMARY_ACCOUNT", {})
     fnb2 = config.BANKING_DETAILS.get("SECONDARY_ACCOUNT", {})
 
@@ -293,7 +294,7 @@ def generate_sars_pdf(invoice_payload):
         [Paragraph(fnb1_text, td_style), Paragraph(fnb2_text, td_style)]
     ]
 
-    bank_table = Table(bank_table_data, colWidths=[278, 278])
+    bank_table = Table(bank_table_data, colWidths=[282.5, 282.5])
     bank_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (0,0), DARK_NAVY),
         ('BACKGROUND', (1,0), (1,0), DARK_NAVY),
@@ -304,14 +305,14 @@ def generate_sars_pdf(invoice_payload):
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#BDC3C7")),
     ]))
     story.append(bank_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 5))
 
     # 9. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES
     story.append(Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", sec_head))
     story.append(Spacer(1, 2))
 
     clause_text = "<br/>".join([f"• <b>{c.split(':')[0]}:</b>{c.split(':')[1]}" if ":" in c else f"• {c}" for c in config.STATUTORY_CLAUSES])
-    clause_table = Table([[Paragraph(f"<font size=7 color='#333333'>{clause_text}</font>", td_style)]], colWidths=[556])
+    clause_table = Table([[Paragraph(f"<font size=6.5 color='#333333'>{clause_text}</font>", td_style)]], colWidths=[565])
     clause_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), LIGHT_GREY_BG),
         ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#BDC3C7")),
@@ -319,7 +320,7 @@ def generate_sars_pdf(invoice_payload):
     ]))
     story.append(clause_table)
 
-    # Build PDF using custom watermark canvas
+    # Build document
     doc.build(story, canvasmaker=WatermarkCanvas)
     buffer.seek(0)
     return buffer.getvalue()
