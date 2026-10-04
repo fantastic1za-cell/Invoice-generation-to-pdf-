@@ -2,14 +2,15 @@
 # SCRIPT MODULE : app.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 15:54:00 SAST
+# TIMESTAMP     : 2026-10-04 15:56:00 SAST
 # LOCKED BY     : Nisaar Ally
-# STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine with POP Verification)
+# STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine with POP Direct File Storage)
 # ==============================================================================
 
 import streamlit as st
 import smtplib
 import pandas as pd
+import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -20,6 +21,10 @@ from pdf_engine import generate_sars_pdf
 
 # Page Configuration
 st.set_page_config(page_title="Mr Mobile SA - Enterprise Document Engine", page_icon="📱", layout="wide")
+
+# POP STORAGE DIRECTORY INITIALIZATION
+POP_STORAGE_DIR = "uploaded_pops"
+os.makedirs(POP_STORAGE_DIR, exist_ok=True)
 
 # AUTOMATED PRODUCTION-GRADE SESSION SANITIZER
 def auto_sanitize_session_state():
@@ -72,11 +77,10 @@ def auto_sanitize_session_state():
                 "Total": 535854.00,
                 "50% Tranche": 267927.00,
                 "Status": "Awaiting POP / Deposit",
-                "POP File": None
+                "POP File Path": None
             }
         ]
 
-    # 4. Form and Dispatch State Flags
     if "show_add_client_form" not in st.session_state:
         st.session_state.show_add_client_form = False
 
@@ -91,7 +95,7 @@ st.sidebar.markdown("### 🔒 System Audit & Status")
 st.sidebar.success("""
 **Status:** Operational (Auto-Guarded)  
 **Author:** Nisaar Ally  
-**Timestamp:** 2026-10-04 15:54:00 SAST  
+**Timestamp:** 2026-10-04 15:56:00 SAST  
 **Auto-Backup:** Active (Daily 23:45 SAST)  
 **Sender:** fantastic1za@gmail.com  
 """)
@@ -146,7 +150,7 @@ with tab1:
 
         if st.button("💾 Save New Client"):
             if not new_client_name:
-                st.error("⚠️️ Client name is required.")
+                st.error("⚠️ Client name is required.")
             elif not new_client_email or "@" not in new_client_email:
                 st.error("⚠️ Valid email address is required.")
             else:
@@ -174,7 +178,6 @@ with tab1:
         delivery_address = st.text_input("Delivery Address", value=client_info.get("delivery_address", ""))
         client_email = st.text_input("Client Email Address", value=client_info.get("email", ""))
 
-    # Sync changes back to active state
     if client_name in st.session_state.client_database:
         st.session_state.client_database[client_name]["trading"] = client_trading
         st.session_state.client_database[client_name]["vat"] = client_vat
@@ -303,7 +306,6 @@ with tab1:
                     server.sendmail(config.SMTP_SENDER, client_email, msg.as_string())
                     server.quit()
 
-                    # Record transaction to tracking ledger with strict "Awaiting POP / Deposit" status
                     already_exists = any(item.get("Ref") == doc_ref for item in st.session_state.processed_ledger)
                     if not already_exists:
                         new_entry = {
@@ -315,7 +317,7 @@ with tab1:
                             "Total": grand_total,
                             "50% Tranche": deposit,
                             "Status": "Awaiting POP / Deposit",
-                            "POP File": None
+                            "POP File Path": None
                         }
                         st.session_state.processed_ledger.append(new_entry)
 
@@ -330,13 +332,9 @@ with tab1:
 with tab2:
     st.subheader("📊 Financial Tracking & Ledger Operations")
 
-    # Metrics Summary
     df_ledger = pd.DataFrame(st.session_state.processed_ledger)
-    display_df = df_ledger.drop(columns=["POP File"], errors="ignore")
 
     total_processed = df_ledger["Total"].sum()
-    
-    # Calculate received vs outstanding deposits
     received_deposits = df_ledger[df_ledger["Status"] == "Deposit Received"]["50% Tranche"].sum()
     pending_deposits = df_ledger[df_ledger["Status"] != "Deposit Received"]["50% Tranche"].sum()
 
@@ -347,19 +345,18 @@ with tab2:
 
     st.markdown("---")
     st.subheader("Commercial Transactions Ledger")
-    st.dataframe(display_df, use_container_width=True)
+    st.dataframe(df_ledger, use_container_width=True)
 
     st.markdown("---")
-    st.subheader("📌 Confirm Deposit & Upload Proof of Payment (POP)")
+    st.subheader("📌 Upload Proof of Payment (POP) & Verify Deposit")
 
-    # Select document requiring verification
     pending_refs = [item["Ref"] for item in st.session_state.processed_ledger]
     
     if pending_refs:
         col_p1, col_p2 = st.columns(2)
         with col_p1:
             selected_ref = st.selectbox("Select Invoice Reference", pending_refs)
-            pop_file = st.file_uploader("Upload Proof of Payment (PDF / PNG / JPG)", type=["pdf", "png", "jpg", "jpeg"])
+            pop_file = st.file_uploader("Upload Proof of Payment (PDF / JPG / PNG)", type=["pdf", "jpg", "jpeg", "png"])
         
         with col_p2:
             st.write("")
@@ -369,16 +366,43 @@ with tab2:
                 st.info(f"**Selected Ref:** {current_item['Ref']}\n\n"
                         f"**Client:** {current_item['Client']}\n\n"
                         f"**Required Deposit:** R {current_item['50% Tranche']:,.2f}\n\n"
-                        f"**Current Status:** `{current_item['Status']}`")
+                        f"**Current Status:** `{current_item['Status']}`\n\n"
+                        f"**Stored POP Path:** `{current_item.get('POP File Path', 'None')}`")
 
-                if st.button("✅ Verify POP & Update Status to 'Deposit Received'", type="primary", use_container_width=True):
-                    if pop_file is None and current_item["POP File"] is None:
-                        st.error("⚠️ Please attach a valid Proof of Payment (POP) file before updating status.")
+                if st.button("✅ Upload POP & Confirm Deposit Received", type="primary", use_container_width=True):
+                    if pop_file is None and current_item.get("POP File Path") is None:
+                        st.error("⚠️ Please attach a valid PDF, JPG, or PNG Proof of Payment file.")
                     else:
-                        current_item["Status"] = "Deposit Received"
                         if pop_file is not None:
-                            current_item["POP File"] = pop_file.name
-                        st.success(f"Status for {selected_ref} updated to 'Deposit Received'!")
+                            # Sanitize file extension and write to disk
+                            file_ext = pop_file.name.split(".")[-1]
+                            saved_filename = f"POP_{selected_ref}_{date.today().strftime('%Y%m%d')}.{file_ext}"
+                            saved_filepath = os.path.join(POP_STORAGE_DIR, saved_filename)
+
+                            with open(saved_filepath, "wb") as f:
+                                f.write(pop_file.getbuffer())
+
+                            current_item["POP File Path"] = saved_filepath
+
+                        current_item["Status"] = "Deposit Received"
+                        st.success(f"POP uploaded successfully and stored at `{current_item['POP File Path']}`! Status set to 'Deposit Received'.")
                         st.rerun()
+
+                # Preview POP if already uploaded
+                if current_item.get("POP File Path") and os.path.exists(current_item["POP File Path"]):
+                    st.markdown("---")
+                    st.markdown("### 👁️ Stored Proof of Payment Document")
+                    file_path = current_item["POP File Path"]
+                    if file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        st.image(file_path, caption=f"Stored POP: {os.path.basename(file_path)}")
+                    elif file_path.lower().endswith('.pdf'):
+                        with open(file_path, "rb") as f:
+                            pdf_data = f.read()
+                        st.download_button(
+                            label=f"📥 Download Stored POP PDF ({os.path.basename(file_path)})",
+                            data=pdf_data,
+                            file_name=os.path.basename(file_path),
+                            mime="application/pdf"
+                        )
     else:
         st.info("No active transactions available for verification.")
