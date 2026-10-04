@@ -2,12 +2,11 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 11:50:00 SAST
+# TIMESTAMP     : 2026-10-04 12:05:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
 
-import os
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -121,7 +120,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(top_table)
     story.append(Spacer(1, 8))
 
-    client_box_text = f"<b>CLIENT & BILLING DETAILS</b><br/>Client Name: {client_name} | Co. Reg / VAT: {client_vat}"
+    client_box_text = f"<b>CLIENT & BILLING DETAILS</b><br/>Client Name: {client_name}<br/>Co. Reg & VAT: {client_vat}"
     client_table = Table([[Paragraph(client_box_text, td_style)]], colWidths=[540])
     client_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F1F3F5")),
