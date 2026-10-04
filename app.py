@@ -2,7 +2,7 @@
 # SCRIPT MODULE : app.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 15:45:00 SAST
+# TIMESTAMP     : 2026-10-04 15:50:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
@@ -21,15 +21,23 @@ from pdf_engine import generate_sars_pdf
 # Page Config
 st.set_page_config(page_title="Mr Mobile SA - Enterprise Document Engine", page_icon="📱", layout="wide")
 
-st.title("📱 Mr Mobile SA — Enterprise Document & Financial Engine")
-st.caption("Operational Engine [Locked: 2026-10-04]")
+# AUTOMATED PRODUCTION-GRADE SESSION SANITIZER (Runs silently on boot)
+def auto_sanitize_session_state():
+    """Validates and enforces strict data types on st.session_state without manual intervention."""
+    
+    # 1. Sanitize Invoice Items
+    default_item = {"desc": "600ml Food Flask\nPlain SS304 Body Configuration. Landed DDP Pinetown.", "qty": 3000, "price": 155.32}
+    if "invoice_items" not in st.session_state or not isinstance(st.session_state.invoice_items, list):
+        st.session_state.invoice_items = [default_item]
+    else:
+        valid_items = []
+        for i in st.session_state.invoice_items:
+            if isinstance(i, dict) and "desc" in i and "qty" in i and "price" in i:
+                valid_items.append(i)
+        st.session_state.invoice_items = valid_items if valid_items else [default_item]
 
-# Defensively Initialize Session Memory Structures
-if "invoice_items" not in st.session_state:
-    st.session_state.invoice_items = [{"desc": "600ml Food Flask\nPlain SS304 Body Configuration. Landed DDP Pinetown.", "qty": 3000, "price": 155.32}]
-
-if "client_database" not in st.session_state:
-    st.session_state.client_database = {
+    # 2. Sanitize Client Database
+    default_db = {
         "Twenty-Five Star (Pty) Ltd": {
             "trading": "Pedros Distribution Centre DBN",
             "vat": "Co. Reg: 2022/686760/07 | VAT: 4690317583",
@@ -45,43 +53,49 @@ if "client_database" not in st.session_state:
             "email": "info@phatbuns.co.za"
         }
     }
+    if "client_database" not in st.session_state or not isinstance(st.session_state.client_database, dict):
+        st.session_state.client_database = default_db
 
-if "processed_ledger" not in st.session_state:
-    st.session_state.processed_ledger = [
-        {"Ref": "PI-20261002-01", "Client": "Twenty-Five Star (Pty) Ltd", "Type": "PRO FORMA TAX INVOICE", "Subtotal": 465960.00, "VAT": 69894.00, "Total": 535854.00, "50% Tranche": 267927.00, "Status": "Deposit Received"}
-    ]
+    # 3. Sanitize Processed Ledger
+    if "processed_ledger" not in st.session_state or not isinstance(st.session_state.processed_ledger, list):
+        st.session_state.processed_ledger = [
+            {"Ref": "PI-20261002-01", "Client": "Twenty-Five Star (Pty) Ltd", "Type": "PRO FORMA TAX INVOICE", "Subtotal": 465960.00, "VAT": 69894.00, "Total": 535854.00, "50% Tranche": 267927.00, "Status": "Deposit Received"}
+        ]
 
-if "show_add_client_form" not in st.session_state:
-    st.session_state.show_add_client_form = False
+    # 4. Flags
+    if "show_add_client_form" not in st.session_state:
+        st.session_state.show_add_client_form = False
+    if "dispatch_completed" not in st.session_state:
+        st.session_state.dispatch_completed = False
 
-if "dispatch_completed" not in st.session_state:
-    st.session_state.dispatch_completed = False
+# Execute automated state guard
+auto_sanitize_session_state()
 
-# Sidebar Controls
-st.sidebar.markdown("### 🔒 System Audit & Controls")
+# App Header
+st.title("📱 Mr Mobile SA — Enterprise Document & Financial Engine")
+st.caption("Operational Engine [Locked: 2026-10-04]")
+
+# Sidebar System Information
+st.sidebar.markdown("### 🔒 System Audit & Status")
 st.sidebar.success("""
-**Status:** Operational  
+**Status:** Operational (Auto-Guarded)  
 **Author:** Nisaar Ally  
-**Timestamp:** 2026-10-04 15:45:00 SAST  
+**Timestamp:** 2026-10-04 15:50:00 SAST  
 **Auto-Backup:** Active (Daily 23:45 SAST)  
 **Sender:** fantastic1za@gmail.com  
 """)
 
-if st.sidebar.button("🔄 Reset App Cache & Memory"):
-    st.session_state.clear()
-    st.rerun()
-
-# Navigation State: Return Screen for Mobile PDF Dispatch
+# iOS Preview Return Navigation Screen
 if st.session_state.dispatch_completed:
     st.success("✅ **Commercial Document Dispatched & Processed Successfully!**")
-    st.info("The PDF has been generated cleanly without watermarks, sent to the client via email, and logged to your Financial Ledger.")
+    st.info("The PDF was generated cleanly without watermarks, emailed to the client, and logged to your Financial Ledger.")
     
     if st.button("⬅️ Return to Main Application Dashboard", type="primary", use_container_width=True):
         st.session_state.dispatch_completed = False
         st.rerun()
 
 else:
-    # Main App Tabs
+    # Main App Navigation
     tab1, tab2 = st.tabs(["📄 Commercial Document Generator", "📊 Financial Tracking Dashboard & Outstanding Balance Ledger"])
 
     # --------------------------------------------------------------------------
@@ -103,7 +117,7 @@ else:
         st.markdown("---")
         st.subheader("Client Selection & Client Capture")
 
-        # Clean Dropdown: Displays ONLY captured existing clients
+        # Clean Dropdown containing strictly captured clients
         client_list = list(st.session_state.client_database.keys())
         
         col_select, col_add_btn = st.columns([3, 1])
@@ -157,7 +171,7 @@ else:
             delivery_address = st.text_input("Delivery Address", value=client_info.get("delivery_address", ""))
             client_email = st.text_input("Client Email Address", value=client_info.get("email", ""))
 
-        # Update Session Dictionary
+        # Sync changes back to active state
         if client_name in st.session_state.client_database:
             st.session_state.client_database[client_name]["trading"] = client_trading
             st.session_state.client_database[client_name]["vat"] = client_vat
@@ -220,7 +234,7 @@ else:
 
         pdf_bytes = generate_sars_pdf(invoice_payload)
 
-        # Dispatch & Email Engine
+        # Dispatch & Download Engine
         st.markdown("### 🚀 Dispatch & Download Engine")
         
         if not client_email or "@" not in client_email:
