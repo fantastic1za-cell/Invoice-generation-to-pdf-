@@ -2,15 +2,16 @@
 # SCRIPT MODULE : app.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 15:56:00 SAST
+# TIMESTAMP     : 2026-10-04 16:10:00 SAST
 # LOCKED BY     : Nisaar Ally
-# STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine with POP Direct File Storage)
+# STATUS        : PRODUCTION LOCKED (In-App PDF Viewer + Native Mobile Controls)
 # ==============================================================================
 
 import streamlit as st
 import smtplib
 import pandas as pd
 import os
+import base64
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -30,7 +31,6 @@ os.makedirs(POP_STORAGE_DIR, exist_ok=True)
 def auto_sanitize_session_state():
     """Validates and enforces strict data types and compliance default states on boot."""
     
-    # 1. Sanitize Invoice Line Items
     default_item = {
         "desc": "600ml Food Flask\nPlain SS304 Body Configuration. Landed DDP Pinetown.",
         "qty": 3000,
@@ -45,7 +45,6 @@ def auto_sanitize_session_state():
         ]
         st.session_state.invoice_items = valid_items if valid_items else [default_item]
 
-    # 2. Sanitize Client Database
     default_db = {
         "Twenty-Five Star (Pty) Ltd": {
             "trading": "Pedros Distribution Centre DBN",
@@ -65,7 +64,6 @@ def auto_sanitize_session_state():
     if "client_database" not in st.session_state or not isinstance(st.session_state.client_database, dict):
         st.session_state.client_database = default_db
 
-    # 3. Sanitize Processed Ledger (Default to "Awaiting POP / Deposit")
     if "processed_ledger" not in st.session_state or not isinstance(st.session_state.processed_ledger, list):
         st.session_state.processed_ledger = [
             {
@@ -84,7 +82,9 @@ def auto_sanitize_session_state():
     if "show_add_client_form" not in st.session_state:
         st.session_state.show_add_client_form = False
 
-# Execute automated state sanitizer
+    if "show_in_app_preview" not in st.session_state:
+        st.session_state.show_in_app_preview = False
+
 auto_sanitize_session_state()
 
 # App Header & System Info
@@ -95,7 +95,7 @@ st.sidebar.markdown("### 🔒 System Audit & Status")
 st.sidebar.success("""
 **Status:** Operational (Auto-Guarded)  
 **Author:** Nisaar Ally  
-**Timestamp:** 2026-10-04 15:56:00 SAST  
+**Timestamp:** 2026-10-04 16:10:00 SAST  
 **Auto-Backup:** Active (Daily 23:45 SAST)  
 **Sender:** fantastic1za@gmail.com  
 """)
@@ -223,7 +223,7 @@ with tab1:
 
     st.markdown("---")
 
-    # PDF Payload
+    # PDF Payload Generation
     invoice_payload = {
         "doc_type": doc_type,
         "invoice_number": doc_ref,
@@ -241,24 +241,25 @@ with tab1:
     pdf_bytes = generate_sars_pdf(invoice_payload)
 
     # Dispatch Controls
-    st.markdown("### 🚀 Document Output & Client Email Dispatch")
+    st.markdown("### 🚀 Document Output & Dispatch")
     
-    if not client_email or "@" not in client_email:
-        st.warning("⚠️ Please provide a valid client email address above before dispatching.")
+    col_prev, col_dl, col_em = st.columns(3)
 
-    col_btn1, col_btn2 = st.columns(2)
-    
-    with col_btn1:
+    with col_prev:
+        if st.button("👁️ Preview PDF In-App", use_container_width=True):
+            st.session_state.show_in_app_preview = not st.session_state.show_in_app_preview
+
+    with col_dl:
         st.download_button(
-            label="⬇️ Download PDF Locally",
+            label="⬇️ Download PDF File",
             data=pdf_bytes,
             file_name=f"{doc_ref}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
 
-    with col_btn2:
-        if st.button("📧 Dispatch Invoice to Client via Email", type="primary", use_container_width=True):
+    with col_em:
+        if st.button("📧 Dispatch via Email", type="primary", use_container_width=True):
             if not client_email or "@" not in client_email:
                 st.error("❌ Email address missing or invalid.")
             else:
@@ -326,6 +327,14 @@ with tab1:
                 except Exception as e:
                     st.error(f"❌ Failed to dispatch email: {str(e)}")
 
+    # In-App PDF Viewer Render
+    if st.session_state.show_in_app_preview:
+        st.markdown("---")
+        st.markdown("### 👁️ In-App PDF Document Viewer")
+        base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="650" type="application/pdf"></iframe>'
+        st.markdown(pdf_display, unsafe_allow_html=True)
+
 # ------------------------------------------------------------------------------
 # TAB 2: FINANCIAL TRACKING DASHBOARD & POP VERIFICATION
 # ------------------------------------------------------------------------------
@@ -374,7 +383,6 @@ with tab2:
                         st.error("⚠️ Please attach a valid PDF, JPG, or PNG Proof of Payment file.")
                     else:
                         if pop_file is not None:
-                            # Sanitize file extension and write to disk
                             file_ext = pop_file.name.split(".")[-1]
                             saved_filename = f"POP_{selected_ref}_{date.today().strftime('%Y%m%d')}.{file_ext}"
                             saved_filepath = os.path.join(POP_STORAGE_DIR, saved_filename)
@@ -388,7 +396,6 @@ with tab2:
                         st.success(f"POP uploaded successfully and stored at `{current_item['POP File Path']}`! Status set to 'Deposit Received'.")
                         st.rerun()
 
-                # Preview POP if already uploaded
                 if current_item.get("POP File Path") and os.path.exists(current_item["POP File Path"]):
                     st.markdown("---")
                     st.markdown("### 👁️ Stored Proof of Payment Document")
