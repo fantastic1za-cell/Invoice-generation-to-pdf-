@@ -2,7 +2,7 @@
 # SCRIPT MODULE : config.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 11:45:00 SAST
+# TIMESTAMP     : 2026-10-04 11:50:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
@@ -17,7 +17,7 @@ VAT_NUMBER = "4960281899"
 SUPPLIER_ADDRESS = "58 Paarlshoop Road, Homestead Park, 2092, Johannesburg, South Africa"
 CONTACT_EMAIL = "nisaar@fantastic1.com"
 
-# SMTP Relay Infrastructure & Redundancy Defaults
+# SMTP Relay Credentials & Dual-Port Redundancy
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PRIMARY_PORT = 465   # SSL
 SMTP_FALLBACK_PORT = 587  # STARTTLS
