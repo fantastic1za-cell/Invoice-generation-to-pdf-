@@ -2,7 +2,7 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 11:45:00 SAST
+# TIMESTAMP     : 2026-10-04 11:50:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
@@ -10,7 +10,7 @@
 import os
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
@@ -18,7 +18,7 @@ from reportlab.pdfgen import canvas
 import config
 
 class WatermarkCanvas(canvas.Canvas):
-    """Custom canvas for background watermark and page numbering."""
+    """Custom canvas for background watermark."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pages = []
@@ -36,7 +36,7 @@ class WatermarkCanvas(canvas.Canvas):
 
     def draw_watermark(self):
         self.saveState()
-        self.setFillColor(colors.HexColor("#F5F5F5"))
+        self.setFillColor(colors.HexColor("#F2F2F2"))
         self.setFont("Helvetica-Bold", 60)
         self.rotate(30)
         self.drawString(140, 220, "Mr Mobile SA")
@@ -83,7 +83,7 @@ def build_banking_section():
 
 
 def generate_sars_pdf(invoice_payload):
-    """Generates SARS VAT Act Section 20 compliant PDF with fallback safeguards."""
+    """Generates SARS VAT Act Section 20 compliant PDF in memory."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -102,7 +102,6 @@ def generate_sars_pdf(invoice_payload):
     th_style = ParagraphStyle('TH', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white)
     td_style = ParagraphStyle('TD', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor("#111111"))
 
-    # Safely extract payload parameters
     doc_type = str(invoice_payload.get("doc_type", "PRO FORMA TAX INVOICE"))
     doc_num = str(invoice_payload.get("invoice_number", "PI-20261002-02"))
     doc_date = str(invoice_payload.get("date", ""))
@@ -132,7 +131,6 @@ def generate_sars_pdf(invoice_payload):
     story.append(client_table)
     story.append(Spacer(1, 8))
 
-    # Items Table Construction with Safe Numeric Parsing
     raw_items = invoice_payload.get("items", [])
     item_rows = [[
         Paragraph("<b>Bespoke Product Description</b>", th_style),
