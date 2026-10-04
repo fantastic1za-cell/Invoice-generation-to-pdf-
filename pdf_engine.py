@@ -2,75 +2,22 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 15:35:00 SAST
+# TIMESTAMP     : 2026-10-04 15:40:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
 
-import os
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
-from reportlab.pdfgen import canvas
 
 import config
 
-class WatermarkCanvas(canvas.Canvas):
-    """Renders mmsalogo.png.jpg with a faded 10% opacity background across the page."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.pages = []
-
-    def showPage(self):
-        self.pages.append(dict(self.__dict__))
-        self._startPage()
-
-    def save(self):
-        for page in self.pages:
-            self.__dict__.update(page)
-            self.draw_watermark()
-            super().showPage()
-        super().save()
-
-    def draw_watermark(self):
-        self.saveState()
-        
-        # Check if logo file exists locally
-        logo_path = getattr(config, "LOGO_PATH", "mmsalogo.png.jpg")
-        if os.path.exists(logo_path):
-            try:
-                # Set 10% opacity for faded background effect
-                self.setFillColor(colors.HexColor("#FFFFFF"))
-                self.setStrokeColor(colors.HexColor("#FFFFFF"))
-                self.setFillAlpha(0.10)
-                
-                # Center logo on A4 Page (595.27 x 841.89 pt)
-                img_width = 380
-                img_height = 380
-                x_pos = (595.27 - img_width) / 2
-                y_pos = (841.89 - img_height) / 2
-                
-                self.drawImage(logo_path, x_pos, y_pos, width=img_width, height=img_height, mask='auto', preserveAspectRatio=True)
-            except Exception:
-                # Fallback text watermark if image rendering fails
-                self.setFillColor(colors.HexColor("#EDEDED"))
-                self.setFont("Helvetica-Bold", 82)
-                self.rotate(28)
-                self.drawString(110, 210, "Mr Mobile")
-        else:
-            # Default text watermark if image file is absent
-            self.setFillColor(colors.HexColor("#EDEDED"))
-            self.setFont("Helvetica-Bold", 82)
-            self.rotate(28)
-            self.drawString(110, 210, "Mr Mobile")
-            
-        self.restoreState()
-
 
 def generate_sars_pdf(invoice_payload):
-    """Generates exact single-page A4 PDF matching PI-20261002-02 final_2.pdf layout."""
+    """Generates exact single-page A4 PDF without watermark matching exact specifications."""
     buffer = BytesIO()
     
     # 595.27 x 841.89 pt A4 size with 15pt margins (Printable width: 565.27pt)
@@ -347,7 +294,7 @@ def generate_sars_pdf(invoice_payload):
     ]))
     story.append(clause_table)
 
-    # Build document
-    doc.build(story, canvasmaker=WatermarkCanvas)
+    # Build document (Standard canvas, no watermark)
+    doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
