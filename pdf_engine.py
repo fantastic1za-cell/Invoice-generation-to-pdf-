@@ -2,9 +2,9 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 15:50:00 SAST
+# TIMESTAMP     : 2026-10-04 16:02:00 SAST
 # LOCKED BY     : Nisaar Ally
-# STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine - Clean Canvas)
+# STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine - Updated Styling & Spacing)
 # ==============================================================================
 
 from io import BytesIO
@@ -16,7 +16,7 @@ from reportlab.lib import colors
 import config
 
 def generate_sars_pdf(invoice_payload):
-    """Generates exact single-page A4 PDF without watermarks matching SARS compliance."""
+    """Generates exact single-page A4 PDF matching SARS compliance."""
     buffer = BytesIO()
     
     # Printable width: 565.27pt on A4 with 15pt margins
@@ -65,7 +65,7 @@ def generate_sars_pdf(invoice_payload):
     reg_address = str(invoice_payload.get("reg_address", "33 Aiken Street, Port Shepstone, KZN, 4240"))
     delivery_address = str(invoice_payload.get("delivery_address", "4-6 Suzuka Road, Westmead, Pinetown, 3608"))
 
-    # 1. Header Block
+    # 1. Header Block (WhatsApp set to dark black #333333)
     header_left_text = f"<b>{doc_type}</b><br/><font size=7 color='#555555'>Official Commercial Document | SARS VAT Compliant</font>"
     header_right_text = f"<b>SUPPLIER DETAILS</b><br/>" \
                          f"{config.COMPANY_NAME}<br/>" \
@@ -73,12 +73,14 @@ def generate_sars_pdf(invoice_payload):
                          f"VAT Details: {config.VAT_NUMBER}<br/>" \
                          f"EMAIL: <a href='mailto:{config.CONTACT_EMAIL}' color='#0066cc'>{config.CONTACT_EMAIL}</a><br/>" \
                          f"{config.SUPPLIER_ADDRESS}<br/>" \
-                         f"<b>Contact:</b> <a href='tel:+27687101939' color='#0066cc'>068 710 1939</a> / <a href='https://wa.me/27827867712' color='#25D366'>082 786 7712 (WhatsApp)</a>"
+                         f"<b>Contact:</b> <a href='tel:+27687101939' color='#0066cc'>068 710 1939</a> / <a href='https://wa.me/27827867712' color='#333333'>082 786 7712 (WhatsApp)</a>"
 
     top_table = Table([[Paragraph(header_left_text, title_style), Paragraph(header_right_text, header_right)]], colWidths=[285, 280])
     top_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
     story.append(top_table)
-    story.append(Spacer(1, 4))
+
+    # Spacing adjustment: 3 lines of space before Client & Billing Details
+    story.append(Spacer(1, 24))
 
     # 2. Client Details Block
     client_box_text = f"<b>CLIENT & BILLING DETAILS</b><br/>" \
@@ -115,7 +117,7 @@ def generate_sars_pdf(invoice_payload):
         ('PADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(meta_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 5))
 
     # 4. Line Items Table
     story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", sec_head))
@@ -172,7 +174,7 @@ def generate_sars_pdf(invoice_payload):
         ('PADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(items_table)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 5))
 
     # 5. Milestone Payment Schedule
     story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", sec_head))
@@ -212,7 +214,7 @@ def generate_sars_pdf(invoice_payload):
         ('PADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(sched_table)
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 4))
 
     # 6. Total Amount Due Box
     due_text = f"TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)<br/><b>R {tranche1_tot:,.2f}</b>"
@@ -220,11 +222,11 @@ def generate_sars_pdf(invoice_payload):
     due_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), RED_BANNER_BG),
         ('BOX', (0,0), (-1,-1), 1, RED_BANNER_BORDER),
-        ('PADDING', (0,0), (-1,-1), 5),
+        ('PADDING', (0,0), (-1,-1), 4),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
     ]))
     story.append(due_table)
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 4))
 
     # 7. FX Terms Box
     fx_text = f"<font size=7 color='#7D6608'><b>Payment & Foreign Exchange Terms:</b> The 50% initial startup deposit (Tranche 1: R {tranche1_tot:,.2f} Incl. VAT) is absorbed and locked at current pricing upon payment. The remaining 50% balance (Tranche 2) will be adjusted based on the active foreign exchange (FX) rate at the time of final port release payment.</font>"
@@ -232,10 +234,10 @@ def generate_sars_pdf(invoice_payload):
     fx_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), GOLD_BANNER_BG),
         ('BOX', (0,0), (-1,-1), 0.8, GOLD_BANNER_BORDER),
-        ('PADDING', (0,0), (-1,-1), 4),
+        ('PADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(fx_table)
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 4))
 
     # 8. Dual FNB Banking Details Table
     fnb1 = config.BANKING_DETAILS.get("PRIMARY_ACCOUNT", {})
@@ -264,12 +266,12 @@ def generate_sars_pdf(invoice_payload):
         ('BACKGROUND', (1,0), (1,0), DARK_NAVY),
         ('BACKGROUND', (0,1), (-1,-1), LIGHT_GREY_BG),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('PADDING', (0,0), (-1,-1), 4),
+        ('PADDING', (0,0), (-1,-1), 3),
         ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#BDC3C7")),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#BDC3C7")),
     ]))
     story.append(bank_table)
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 4))
 
     # 9. Statutory Compliance & Logistical Clauses
     story.append(Paragraph("<b>3. STATUTORY COMPLIANCE & LOGISTICAL CLAUSES</b>", sec_head))
@@ -280,11 +282,11 @@ def generate_sars_pdf(invoice_payload):
     clause_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), LIGHT_GREY_BG),
         ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#BDC3C7")),
-        ('PADDING', (0,0), (-1,-1), 4),
+        ('PADDING', (0,0), (-1,-1), 3),
     ]))
     story.append(clause_table)
 
-    # Render Document without Canvas Watermark
+    # Render Document
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
