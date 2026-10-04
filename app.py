@@ -1,289 +1,187 @@
 # ==============================================================================
-# SCRIPT NAME: app.py
-# TIMESTAMP: 2026-10-02 23:22:00 SAST
-# STATUS: STREAMLIT APP WATERMARK & LIVE FX OUTPUT TOGGLE ADDED
+# SCRIPT MODULE : app.py
+# REPOSITORY    : fantastic1za-cell/Invoice-generator-3
+# AUTHOR        : Nisaar Ally
+# TIMESTAMP     : 2026-10-04 11:28:00 SAST
+# LOCKED BY     : Nisaar Ally
+# STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
 
 import streamlit as st
-import requests
-import pandas as pd
-import math
-import base64
-import os
-from datetime import datetime
-from pdf_engine import build_pdf_document
-from config import SUPPLIER_DETAILS, BANK_DETAILS_PRIMARY, BANK_DETAILS_SECONDARY
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from datetime import date
 
-# 1. Page Configuration
-st.set_page_config(
-    page_title="Mr Mobile SA - Invoice Generator",
-    page_icon="mmsalogo.png.jpg",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+import config
+from pdf_engine import generate_sars_pdf
 
-# 2. Inject App-Wide Background Watermark (MMSA Logo)
-logo_file = "mmsalogo.png.jpg"
-if os.path.exists(logo_file):
-    with open(logo_file, "rb") as image_file:
-        encoded_logo = base64.b64encode(image_file.read()).decode()
-    
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background-image: linear-gradient(rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.92)), url("data:image/jpeg;base64,{encoded_logo}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+# Streamlit Page Config
+st.set_page_config(page_title="Mr Mobile SA - Document Engine", page_icon="📱", layout="wide")
 
-# Initialize Session State
-if "invoices_db" not in st.session_state:
-    st.session_state.invoices_db = [
-        {
-            "doc_num": "PI-2026-1002-03",
-            "client_name": "Twenty-Five Star (Pty) Ltd",
-            "trading_name": "Pedros Distribution Centre DBN",
-            "invoice_total": 535854.00,
-            "deposit_required": 267927.00,
-            "status": "Outstanding",
-            "amount_paid": 0.00,
-            "balance_outstanding": 535854.00,
-            "date": "2026-10-02"
-        }
-    ]
+st.title("📱 Mr Mobile SA — Enterprise Document & Dispatch Engine")
 
-if "client_database" not in st.session_state:
-    st.session_state.client_database = {
-        "Twenty-Five Star (Pty) Ltd": {
-            "trading_name": "Pedros Distribution Centre DBN",
-            "reg_vat": "Co. Reg: 2022/686760/07 | VAT: 4690317583",
-            "reg_address": "33 Aiken Street, Port Shepstone, KZN, 4240",
-            "del_address": "4-6 Suzuka Road, Westmead, Pinetown, 3608"
-        }
-    }
+# Sidebar
+st.sidebar.markdown("### 🔒 Deployment & Audit Log")
+st.sidebar.success("""
+**Last Action:** SMTP Email Engine Integrated  
+**Author:** Nisaar Ally  
+**Timestamp:** 2026-10-04 11:28:00 SAST  
+**Auto-Backup:** Active (Daily at 23:45 SAST)  
+**Sender:** fantastic1za@gmail.com  
+""")
 
-if "sku_database" not in st.session_state:
-    st.session_state.sku_database = {
-        "600ml Food Flask": {
-            "description": "Plain SS304 Body Configuration. Landed DDP Pinetown.",
-            "default_price": 155.32
-        },
-        "400ml Thermal Flask": {
-            "description": "Branded Pantone 176C Thermal Flask. Landed DDP Pinetown.",
-            "default_price": 125.50
-        },
-        "YogiCup Standard": {
-            "description": "Custom Molded YogiCup with Lid Specification.",
-            "default_price": 45.00
-        }
-    }
+st.sidebar.markdown("---")
+st.sidebar.header("Document Parameters")
+doc_type = st.sidebar.selectbox("Document Type", ["TAX INVOICE", "PRO FORMA TAX INVOICE", "QUOTATION"])
+doc_ref = st.sidebar.text_input("Reference Number", value="PI-20261002-02")
+doc_date = st.sidebar.date_input("Document Date", value=date.today())
 
-st.markdown("<h1 style='text-align: center; color: #FFFFFF;'>MR MOBILE SA — Commercial Document Generator</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94A3B8;'>Enterprise Operational Engine [Locked: 2026-10-02]</p>", unsafe_allow_html=True)
-st.markdown("---")
+st.sidebar.markdown("---")
+st.sidebar.header("Client Details")
+client_name = st.sidebar.text_input("Client Name", value="Twenty-Five Star (Pty) Ltd")
+client_vat = st.sidebar.text_input("Client VAT Registration", value="4690317583")
+client_email = st.sidebar.text_input("Client Email Address", value="nisaar@fantastic1.com")
 
-tab1, tab2 = st.tabs(["📄 Document Generator", "📊 Enterprise Financial Tracking Dashboard"])
+if "items" not in st.session_state:
+    st.session_state.items = [{"desc": "600ml Food Flask (Plain SS304 Body Configuration)", "qty": 3000, "price": 155.32}]
 
-# ==========================================
-# TAB 1: DOCUMENT GENERATOR PORTAL
-# ==========================================
+# Tab Layout
+tab1, tab2 = st.tabs(["📄 Document & Email Engine", "📊 Banking & Compliance Parameters"])
+
 with tab1:
-    st.subheader("Configure & Generate Commercial Document")
+    st.subheader(f"Line Items Specification — {doc_type}")
     
-    def get_live_usd_zar_rate():
-        try:
-            response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
-            if response.status_code == 200:
-                rates = response.json().get("rates", {})
-                raw_rate = float(rates.get("ZAR", 18.25))
-                return math.ceil(raw_rate * 100) / 100.0
-        except Exception:
-            pass
-        return 18.25
+    for idx, item in enumerate(st.session_state.items):
+        col1, col2, col3 = st.columns([3, 1, 1])
+        with col1:
+            item["desc"] = st.text_input(f"Description #{idx+1}", value=item["desc"], key=f"desc_{idx}")
+        with col2:
+            item["qty"] = st.number_input(f"Qty #{idx+1}", min_value=1, value=item["qty"], key=f"qty_{idx}")
+        with col3:
+            item["price"] = st.number_input(f"Unit Price (Excl) #{idx+1}", min_value=0.0, value=item["price"], step=10.0, key=f"price_{idx}")
 
-    base_usd_zar = get_live_usd_zar_rate()
-
-    col_a, col_b = st.columns(2)
-    with col_a:
-        doc_type = st.selectbox("Document Type", ["PRO FORMA TAX INVOICE", "TAX INVOICE", "QUOTATION"])
-        shipping_mode = st.selectbox("Shipping Mode", ["Sea Freight", "Air Freight", "Express Courier"])
-    with col_b:
-        doc_date = st.date_input("Document Date", value=datetime.today())
-        next_invoice_seq = len(st.session_state.invoices_db) + 1
-        date_str = doc_date.strftime("%Y-%m-%d").replace("-", "")
-        dynamic_doc_num = f"PI-{date_str}-{next_invoice_seq:02d}"
-        doc_num = st.text_input("Document Number", value=dynamic_doc_num, disabled=True)
-
-    col_c, col_d = st.columns(2)
-    with col_c:
-        due_date = st.text_input("Due Date", value="Immediate (Upon Receipt)")
-    with col_d:
-        validity = st.selectbox("Validity", ["1 day", "7 days", "15 days", "30 days"], index=3)
+    col_add, col_rem = st.columns([1, 1])
+    with col_add:
+        if st.button("➕ Add Line Item"):
+            st.session_state.items.append({"desc": "", "qty": 1, "price": 0.0})
+            st.rerun()
+    with col_rem:
+        if len(st.session_state.items) > 1:
+            if st.button("➖ Remove Line Item"):
+                st.session_state.items.pop()
+                st.rerun()
 
     st.markdown("---")
     
-    # FX Rate Control Bar with Output Toggle
-    fx_col1, fx_col2 = st.columns([2, 1])
-    with fx_col1:
-        st.markdown(
-            f"<div style='padding: 12px; background-color: #1E293B; border-left: 4px solid #38BDF8; border-radius: 6px; color: #F8FAFC;'>"
-            f"<b>Live Market FX (US$/ZAR):</b> <span style='color: #38BDF8; font-size: 16px;'><b>R {base_usd_zar:,.2f}</b></span>"
-            f"</div>",
-            unsafe_allow_html=True
-        )
-    with fx_col2:
-        show_fx_on_output = st.radio("Show on output:", ["Yes", "No"], index=0, horizontal=True)
+    # Financial Totals
+    subtotal = sum(i["qty"] * i["price"] for i in st.session_state.items)
+    vat = subtotal * config.TAX_RATE
+    grand_total = subtotal + vat
+    deposit = grand_total * 0.50
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Subtotal (Excl)", f"R {subtotal:,.2f}")
+    c2.metric("VAT (15%)", f"R {vat:,.2f}")
+    c3.metric("Grand Total (Incl)", f"R {grand_total:,.2f}")
+    c4.metric("50% Tranche Deposit", f"R {deposit:,.2f}")
 
     st.markdown("---")
 
-    col_cl_head1, col_cl_head2 = st.columns([3, 1])
-    with col_cl_head1:
-        st.markdown("### Client & Billing Details")
-    with col_cl_head2:
-        add_new_client_toggle = st.checkbox("➕ Add New Client")
-
-    if add_new_client_toggle:
-        client_name = st.text_input("New Client Name", value="")
-        trading_name = st.text_input("Trading Name", value="")
-        reg_vat = st.text_input("Co. Reg & VAT", value="")
-        reg_address = st.text_input("Reg Address", value="")
-        del_address = st.text_input("Delivery Address", value="")
-        
-        if client_name and client_name not in st.session_state.client_database:
-            st.session_state.client_database[client_name] = {
-                "trading_name": trading_name,
-                "reg_vat": reg_vat,
-                "reg_address": reg_address,
-                "del_address": del_address
-            }
-    else:
-        existing_clients = list(st.session_state.client_database.keys())
-        client_name = st.selectbox("Select Existing Client", existing_clients)
-        client_info = st.session_state.client_database[client_name]
-        
-        col_e, col_f = st.columns(2)
-        with col_e:
-            st.text_input("Client Name", value=client_name, disabled=True)
-            trading_name = st.text_input("Trading Name", value=client_info["trading_name"])
-            reg_vat = st.text_input("Co. Reg & VAT", value=client_info["reg_vat"])
-        with col_f:
-            reg_address = st.text_input("Reg Address", value=client_info["reg_address"])
-            del_address = st.text_input("Delivery Address", value=client_info["del_address"])
-
-    st.markdown("### Commercial Line-Item Specification")
-    num_items = st.number_input("How many line items?", min_value=1, max_value=10, value=1)
-
-    products = []
-    grand_excl = 0.0
-    grand_incl = 0.0
-
-    existing_skus = list(st.session_state.sku_database.keys()) + ["+ Add New Custom SKU"]
-
-    for i in range(int(num_items)):
-        st.markdown(f"#### Item #{i+1}")
-        selected_sku_option = st.selectbox(f"Select SKU / Item Code #{i+1}", existing_skus, key=f"sku_select_{i}")
-        
-        if selected_sku_option == "+ Add New Custom SKU":
-            sku = st.text_input(f"New SKU Code #{i+1}", key=f"new_sku_{i}")
-            desc = st.text_area(f"Bespoke Description #{i+1}", key=f"new_desc_{i}")
-            default_p = 100.00
-        else:
-            sku = selected_sku_option
-            sku_info = st.session_state.sku_database[sku]
-            desc = st.text_area(f"Bespoke Description #{i+1}", value=sku_info["description"], key=f"desc_{i}")
-            default_p = sku_info["default_price"]
-
-        qty = st.number_input(f"Quantity (Units) #{i+1}", min_value=1, value=3000, key=f"qty_{i}")
-        unit_price = st.number_input(f"Unit Price Excl. VAT (R) #{i+1}", min_value=0.0, value=float(default_p), format="%.2f", key=f"price_{i}")
-        
-        net_subtotal = qty * unit_price
-        total_incl = net_subtotal * 1.15
-        
-        grand_excl += net_subtotal
-        grand_incl += total_incl
-
-        products.append({
-            "SKU": sku,
-            "Description": desc,
-            "Qty": qty,
-            "Unit Price (Excl)": unit_price,
-            "Net Subtotal (Excl)": net_subtotal,
-            "Total Price (Incl)": total_incl
-        })
-
-    invoice_data = {
-        "document_type": doc_type,
-        "shipping_mode": shipping_mode,
-        "invoice_date": doc_date,
-        "invoice_num": dynamic_doc_num,
-        "due_date": due_date,
-        "validity": validity,
-        "show_fx_on_output": (show_fx_on_output == "Yes"),
-        "exchange_rate_display": f"R {base_usd_zar:,.2f}",
-        "supplier_details": SUPPLIER_DETAILS,
-        "bank_details_primary": BANK_DETAILS_PRIMARY,
-        "bank_details_secondary": BANK_DETAILS_SECONDARY,
-        "client": {
-            "client_name": client_name,
-            "trading_name": trading_name,
-            "reg_vat": reg_vat,
-            "reg_address": reg_address,
-            "del_address": del_address
-        },
-        "products": products
+    # Construct Document Payload
+    invoice_payload = {
+        "doc_type": doc_type,
+        "invoice_number": doc_ref,
+        "date": str(doc_date),
+        "client_name": client_name,
+        "client_vat": client_vat,
+        "client_email": client_email,
+        "items": st.session_state.items
     }
 
-    if st.button("Generate PDF Invoice", type="primary"):
-        try:
-            pdf_buffer = build_pdf_document(invoice_data)
-            pdf_bytes = pdf_buffer.getvalue()
-            b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+    pdf_bytes = generate_sars_pdf(invoice_payload)
 
-            download_html = f"""
-                <div style="margin-top: 15px; text-align: center;">
-                    <a id="auto_pdf_dl" href="data:application/pdf;base64,{b64_pdf}" download="{dynamic_doc_num}.pdf" style="
-                        display: inline-block;
-                        padding: 14px 28px;
-                        background-color: #0284C7;
-                        color: #FFFFFF;
-                        font-weight: bold;
-                        font-size: 16px;
-                        text-decoration: none;
-                        border-radius: 8px;
-                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-                    ">
-                        📥 Download {dynamic_doc_num}.pdf Directly to Device
-                    </a>
-                </div>
-            """
-            st.success("PDF generated successfully!")
-            st.markdown(download_html, unsafe_allow_html=True)
+    col_btn1, col_btn2 = st.columns([1, 1])
+    with col_btn1:
+        st.download_button(
+            label="⬇️ Download PDF Document",
+            data=pdf_bytes,
+            file_name=f"{doc_ref}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
 
-        except Exception as e:
-            st.error(f"Error generating PDF: {e}")
+    # Client Email Dispatch Block
+    st.markdown("### 📧 Direct Client Email Dispatch")
+    st.info(f"Target Recipient Address: **{client_email}**")
+    
+    email_confirmed = st.checkbox(f"I confirm that '{client_email}' is the correct and verified client email address.")
 
-# ==========================================
-# TAB 2: INVOICE TRACKING DASHBOARD
-# ==========================================
+    if st.button("🚀 Send Email to Client", type="primary", use_container_width=True):
+        if not email_confirmed:
+            st.error("⚠️ Please check the confirmation box above to verify the client's email address before dispatching.")
+        elif not client_email or "@" not in client_email:
+            st.error("⚠️ Invalid client email address specified.")
+        else:
+            with st.spinner("Connecting to Gmail SMTP relay and sending email..."):
+                try:
+                    msg = MIMEMultipart()
+                    msg['From'] = f"Nisaar Ally <{config.SMTP_SENDER}>"
+                    msg['To'] = client_email
+                    msg['Subject'] = f"{doc_type} Ref: {doc_ref}"
+
+                    html_body = f"""
+                    <html>
+                    <body style="font-family: Arial, sans-serif; color: #222222; line-height: 1.6;">
+                        <h2 style="color: #0f1d2f;">{doc_type} — Ref: {doc_ref}</h2>
+                        <p>Dear {client_name},</p>
+                        
+                        <p>Thank you for your valued business and continued support. Please find attached your official SARS-compliant <b>{doc_type}</b> for immediate review.</p>
+                        
+                        <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #0f1d2f; margin: 15px 0;">
+                            <h4 style="margin-top: 0;">Summary of Account:</h4>
+                            <ul>
+                                <li><b>Reference Number:</b> {doc_ref}</li>
+                                <li><b>Subtotal (Excl. VAT):</b> R {subtotal:,.2f}</li>
+                                <li><b>VAT (15%):</b> R {vat:,.2f}</li>
+                                <li><b>Grand Total (Incl. VAT):</b> R {grand_total:,.2f}</li>
+                                <li><b>50% Required Tranche Deposit:</b> R {deposit:,.2f}</li>
+                            </ul>
+                        </div>
+                        
+                        <p>Please refer to the attached PDF for itemized breakdowns, production milestone terms, and corporate FNB banking parameters.</p>
+                        
+                        <p>Should you require any further assistance or clarification, please contact me directly using the links below:</p>
+                        
+                        <hr style="border: 0; border-top: 1px solid #dddddd; margin: 20px 0;">
+                        
+                        <p><b>Regards,</b><br/>
+                        <strong>Nisaar Ally</strong><br/>
+                        📱 Mobile: <a href="tel:+27687274731" style="color: #0066cc; text-decoration: none;">068 727 4731</a> 📲<br/>
+                        📱 Secondary: <a href="tel:+27687101939" style="color: #0066cc; text-decoration: none;">068 710 1939</a> 📲<br/>
+                        💬 WhatsApp: <a href="https://wa.me/27827867712" style="color: #25D366; text-decoration: none; font-weight: bold;">082 786 7712</a><br/>
+                        📧 Email: <a href="mailto:nisaar@fantastic1.com" style="color: #0066cc; text-decoration: none;">nisaar@fantastic1.com</a> 📧
+                        </p>
+                    </body>
+                    </html>
+                    """
+                    
+                    msg.attach(MIMEText(html_body, 'html'))
+
+                    attachment = MIMEApplication(pdf_bytes, Name=f"{doc_ref}.pdf")
+                    attachment['Content-Disposition'] = f'attachment; filename="{doc_ref}.pdf"'
+                    msg.attach(attachment)
+
+                    server = smtplib.SMTP_SSL(config.SMTP_SERVER, config.SMTP_PORT)
+                    server.login(config.SMTP_SENDER, config.SMTP_PASSWORD)
+                    server.sendmail(config.SMTP_SENDER, client_email, msg.as_string())
+                    server.quit()
+
+                    st.success(f"✅ Success! {doc_type} successfully emailed to **{client_email}**.")
+                except Exception as e:
+                    st.error(f"❌ Failed to send email: {str(e)}")
+
 with tab2:
-    st.subheader("Enterprise Financial Tracking Dashboard")
-    if not st.session_state.invoices_db:
-        st.info("No invoices generated yet.")
-    else:
-        df_invoices = pd.DataFrame(st.session_state.invoices_db)
-        col_m1, col_m2, col_m3 = st.columns(3)
-        col_m1.metric("Total Billed Portfolio", f"R {df_invoices['invoice_total'].sum():,.2f}")
-        col_m2.metric("Total Collected", f"R {df_invoices['amount_paid'].sum():,.2f}")
-        col_m3.metric("Total Outstanding Balance", f"R {df_invoices['balance_outstanding'].sum():,.2f}")
-
-        st.markdown("---")
-        display_df = pd.DataFrame(st.session_state.invoices_db)
-        display_df.columns = ["Invoice No", "Client Name", "Trading Name", "Total (R)", "Deposit (R)", "Status", "Paid (R)", "Outstanding (R)", "Date"]
-        st.dataframe(display_df, use_container_width=True)
+    st.subheader("System Banking & SWIFT Configurations")
+    st.json(config.BANKING_DETAILS)
