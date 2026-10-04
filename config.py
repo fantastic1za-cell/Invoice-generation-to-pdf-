@@ -1,35 +1,56 @@
 # ==============================================================================
-# SCRIPT NAME: config.py
-# TIMESTAMP: 2026-10-02 23:40:00 SAST
-# STATUS: SUPPLIER DETAILS UPDATED WITH EXPLICIT ADDRESS SPLIT
+# SCRIPT MODULE : config.py
+# REPOSITORY    : fantastic1za-cell/Invoice-generator-3
+# AUTHOR        : Nisaar Ally
+# TIMESTAMP     : 2026-10-04 11:28:00 SAST
+# LOCKED BY     : Nisaar Ally
+# STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
 
-SUPPLIER_DETAILS = {
-    "entity": "IRESQ LA LUCIA PTY LTD",
-    "trading": "T/A MR MOBILE SA",
-    "vat": "4960281899",
-    "email": "nisaar@fantastic1.com",
-    "street_address": "58 Paarlshoop Road, Homestead Park, 2092",
-    "city_country": "Johannesburg, South Africa",
-    "phone_call": "068 710 1939",
-    "phone_call_raw": "+27687101939",
-    "phone_wa": "082 786 7712",
-    "phone_wa_raw": "27827867712"
+import os
+
+# Company Branding & Identity
+COMPANY_NAME = "IRESQ LA LUCIA PTY LTD"
+TRADING_NAME = "MR MOBILE SA"
+REGISTRATION_NUMBER = "2020/123456/07"
+VAT_NUMBER = "4960281899"
+SUPPLIER_ADDRESS = "58 Paarlshoop Road, Homestead Park, 2092, Johannesburg, South Africa"
+CONTACT_EMAIL = "nisaar@fantastic1.com"
+
+# SMTP Relay Credentials
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 465
+SMTP_SENDER = "fantastic1za@gmail.com"
+SMTP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "khvo hsun zjpe vcqf")
+
+# Dual Banking Configurations (FNB 1 & FNB 2 with SWIFT Codes)
+BANKING_DETAILS = {
+    "PRIMARY_ACCOUNT": {
+        "title": "OFFICIAL CORPORATE ACCOUNT (FNB 1)",
+        "account_name": "IRESQ LA LUCIA PTY LTD",
+        "bank": "First National Bank (FNB)",
+        "account_type": "Current Account",
+        "account_number": "63152083390",
+        "branch_code": "256505 (Melville)",
+        "swift_code": "FIRNZAJJ"
+    },
+    "SECONDARY_ACCOUNT": {
+        "title": "FRANCHISE BUSINESS ACCOUNT (FNB 2)",
+        "account_name": "IRESQ LA LUCIA PTY LTD T/A MMSA FBA",
+        "bank": "First National Bank (FNB)",
+        "account_type": "Franchise Business Account",
+        "account_number": "63230107658",
+        "branch_code": "256505",
+        "swift_code": "FIRNZAJJ"
+    }
 }
 
-BANK_DETAILS_PRIMARY = {
-    "account_name": "IRESQ LA LUCIA PTY LTD",
-    "bank_name": "First National Bank (FNB)",
-    "account_type": "Current Account",
-    "account_number": "63152083390",
-    "branch_code": "256505 (Melville)"
-}
+# Statutory Compliance Clauses
+STATUTORY_CLAUSES = [
+    "Raw Material Securement: Production planning, custom material blending, and machine line configurations will trigger automatically upon formal reflection of the 50% deposit inside our corporate banking treasury. The 50% initial startup pricing is absorbed and fixed as billed.",
+    "Origin Loading Protection & FX Adjustment: The final 50% balance tranche is contractually tied to origin quality control (QC) verification prior to container loading in China. The final balance payment will be calculated based on the prevailing foreign exchange (FX) rate at the time of transaction settlement."
+]
 
-BANK_DETAILS_SECONDARY = {
-    "account_name": "IRESQ LA LUCIA PTY LTD T/A MMSA FBA",
-    "bank_name": "First National Bank (FNB)",
-    "account_type": "Franchise Business Account",
-    "account_number": "63230107658",
-    "branch_code": "256505",
-    "swift": "FIRNZAJJ"
-}
+LOGO_PATH = "mmsalogo.png.jpg"
+CURRENCY_SYMBOL = "R"
+TAX_RATE = 0.15
