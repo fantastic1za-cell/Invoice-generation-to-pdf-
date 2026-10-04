@@ -2,11 +2,12 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 15:30:00 SAST
+# TIMESTAMP     : 2026-10-04 15:35:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine)
 # ==============================================================================
 
+import os
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -17,7 +18,7 @@ from reportlab.pdfgen import canvas
 import config
 
 class WatermarkCanvas(canvas.Canvas):
-    """Renders exact diagonal background watermark matching PI-20261002-02 final.pdf."""
+    """Renders mmsalogo.png.jpg with a faded 10% opacity background across the page."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pages = []
@@ -35,18 +36,44 @@ class WatermarkCanvas(canvas.Canvas):
 
     def draw_watermark(self):
         self.saveState()
-        self.setFillColor(colors.HexColor("#EDEDED"))
-        self.setFont("Helvetica-Bold", 82)
-        self.rotate(28)
-        self.drawString(110, 210, "Mr Mobile")
+        
+        # Check if logo file exists locally
+        logo_path = getattr(config, "LOGO_PATH", "mmsalogo.png.jpg")
+        if os.path.exists(logo_path):
+            try:
+                # Set 10% opacity for faded background effect
+                self.setFillColor(colors.HexColor("#FFFFFF"))
+                self.setStrokeColor(colors.HexColor("#FFFFFF"))
+                self.setFillAlpha(0.10)
+                
+                # Center logo on A4 Page (595.27 x 841.89 pt)
+                img_width = 380
+                img_height = 380
+                x_pos = (595.27 - img_width) / 2
+                y_pos = (841.89 - img_height) / 2
+                
+                self.drawImage(logo_path, x_pos, y_pos, width=img_width, height=img_height, mask='auto', preserveAspectRatio=True)
+            except Exception:
+                # Fallback text watermark if image rendering fails
+                self.setFillColor(colors.HexColor("#EDEDED"))
+                self.setFont("Helvetica-Bold", 82)
+                self.rotate(28)
+                self.drawString(110, 210, "Mr Mobile")
+        else:
+            # Default text watermark if image file is absent
+            self.setFillColor(colors.HexColor("#EDEDED"))
+            self.setFont("Helvetica-Bold", 82)
+            self.rotate(28)
+            self.drawString(110, 210, "Mr Mobile")
+            
         self.restoreState()
 
 
 def generate_sars_pdf(invoice_payload):
-    """Generates exact pixel-perfect single-page A4 PDF matching PI-20261002-02 final.pdf."""
+    """Generates exact single-page A4 PDF matching PI-20261002-02 final_2.pdf layout."""
     buffer = BytesIO()
     
-    # 595.27 x 841.89 pt A4 size with tight 15pt margins (Printable width: 565.27pt)
+    # 595.27 x 841.89 pt A4 size with 15pt margins (Printable width: 565.27pt)
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -58,7 +85,7 @@ def generate_sars_pdf(invoice_payload):
 
     story = []
 
-    # Hex Colors
+    # Strict Palette Definitions
     DARK_NAVY = colors.HexColor("#1A2B4C")
     HEADER_GREY = colors.HexColor("#2C3E50")
     LIGHT_GREY_BG = colors.HexColor("#F4F6F7")
@@ -67,7 +94,7 @@ def generate_sars_pdf(invoice_payload):
     RED_BANNER_BG = colors.HexColor("#FDEDEC")
     RED_BANNER_BORDER = colors.HexColor("#E74C3C")
 
-    # Typography Styles
+    # Typography
     title_style = ParagraphStyle('DocTitle', fontName='Helvetica-Bold', fontSize=18, leading=20, textColor=colors.black)
     header_right = ParagraphStyle('HeadRight', fontName='Helvetica', fontSize=7.5, leading=9.5, alignment=2, textColor=colors.HexColor("#333333"))
     
@@ -80,7 +107,7 @@ def generate_sars_pdf(invoice_payload):
     sec_head = ParagraphStyle('SecHead', fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.black)
     banner_text = ParagraphStyle('BannerTxt', fontName='Helvetica-Bold', fontSize=10, leading=12, alignment=1, textColor=colors.HexColor("#900C3F"))
 
-    # Safely extract payload parameters
+    # Safely Extract Data Payload
     doc_type = str(invoice_payload.get("doc_type", "PRO FORMA TAX INVOICE"))
     doc_num = str(invoice_payload.get("invoice_number", "PI-20261002-02"))
     doc_date = str(invoice_payload.get("date", "2026-10-02"))
