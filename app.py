@@ -2,7 +2,7 @@
 # SCRIPT MODULE : app.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 18:30:00 SAST
+# TIMESTAMP     : 2026-10-12 17:53:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (Dynamic Reference & Multi-Item Support)
 # ==============================================================================
@@ -58,7 +58,7 @@ def auto_sanitize_session_state():
     if "processed_ledger" not in st.session_state or not isinstance(st.session_state.processed_ledger, list):
         st.session_state.processed_ledger = [
             {
-                "Ref": "PI-20261002-01",
+                "Ref": "PI-20261012-01",
                 "Client": "Twenty-Five Star (Pty) Ltd",
                 "Type": "PRO FORMA TAX INVOICE",
                 "Subtotal": 465960.00,
@@ -79,13 +79,13 @@ def auto_sanitize_session_state():
 auto_sanitize_session_state()
 
 st.title("📱 Mr Mobile SA — Enterprise Document & Financial Engine")
-st.caption("Operational Engine | SARS VAT Compliant [Locked: 2026-10-04]")
+st.caption("Operational Engine | SARS VAT Compliant [Locked: 2026-10-12]")
 
 st.sidebar.markdown("### 🔒 System Audit & Status")
 st.sidebar.success("""
 **Status:** Operational (Auto-Guarded)  
 **Author:** Nisaar Ally  
-**Timestamp:** 2026-10-04 18:30:00 SAST  
+**Timestamp:** 2026-10-12 17:53:00 SAST  
 **Auto-Backup:** Active (Daily 23:45 SAST)  
 **Sender:** fantastic1za@gmail.com  
 """)
@@ -119,7 +119,6 @@ with tab1:
     date_str = doc_date.strftime("%Y%m%d")
     base_pattern = f"{prefix}-{date_str}"
 
-    # Automatically recalculate reference when document type or date changes
     if "last_doc_pattern" not in st.session_state or st.session_state.last_doc_pattern != base_pattern:
         existing_count = sum(1 for item in st.session_state.processed_ledger if item.get("Ref", "").startswith(base_pattern))
         st.session_state.current_doc_ref = f"{base_pattern}-{existing_count + 1:02d}"
