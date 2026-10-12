@@ -2,7 +2,7 @@
 # SCRIPT MODULE : pdf_engine.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 18:00:00 SAST
+# TIMESTAMP     : 2026-10-12 17:53:00 SAST
 # LOCKED BY     : Nisaar Ally
 # STATUS        : PRODUCTION LOCKED (SARS-Compliant Engine with Dynamic Payment Structures)
 # ==============================================================================
@@ -55,8 +55,8 @@ def generate_sars_pdf(invoice_payload):
 
     # Safely Extract Payload Parameters
     doc_type = str(invoice_payload.get("doc_type", "PRO FORMA TAX INVOICE"))
-    doc_num = str(invoice_payload.get("invoice_number", "PI-20261002-02"))
-    doc_date = str(invoice_payload.get("date", "2026-10-02"))
+    doc_num = str(invoice_payload.get("invoice_number", "PI-20261012-01"))
+    doc_date = str(invoice_payload.get("date", "2026-10-12"))
     shipping_mode = str(invoice_payload.get("shipping_mode", "Sea Freight"))
     
     client_name = str(invoice_payload.get("client_name", "Twenty-Five Star (Pty) Ltd"))
@@ -81,7 +81,7 @@ def generate_sars_pdf(invoice_payload):
     top_table = Table([[Paragraph(header_left_text, title_style), Paragraph(header_right_text, header_right)]], colWidths=[285, 280])
     top_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
     story.append(top_table)
-    story.append(Spacer(1, 24)) # 3 lines spacing
+    story.append(Spacer(1, 24))
 
     # 2. Client Details Block
     client_box_text = f"<b>CLIENT & BILLING DETAILS</b><br/>" \
@@ -120,7 +120,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(meta_table)
     story.append(Spacer(1, 5))
 
-    # 4. Line Items Table (Dynamic Multi-Item Loop)
+    # 4. Line Items Table
     story.append(Paragraph("<b>1. COMMERCIAL LINE-ITEM SPECIFICATION</b>", sec_head))
     story.append(Spacer(1, 2))
 
@@ -184,7 +184,7 @@ def generate_sars_pdf(invoice_payload):
     story.append(items_table)
     story.append(Spacer(1, 5))
 
-    # 5. Milestone Payment Schedule (Dynamic based on payment_mode)
+    # 5. Milestone Payment Schedule
     story.append(Paragraph("<b>2. CONTRACTUAL MILESTONE PAYMENT SCHEDULE</b>", sec_head))
     story.append(Spacer(1, 2))
 
@@ -233,7 +233,7 @@ def generate_sars_pdf(invoice_payload):
                 Paragraph(f"R {rem_tot:,.2f}*", td_style)
             ]
         ]
-    else: # Default 50/50
+    else:
         due_sub = tot_subtotal * 0.50
         due_tot = tot_grand * 0.50
         due_label = "TOTAL AMOUNT NOW DUE TO INITIATE MANUFACTURING (TRANCHE 1 DEPOSIT)"
