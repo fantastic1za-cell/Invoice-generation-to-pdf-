@@ -2,9 +2,9 @@
 # SCRIPT MODULE : app.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-12 17:53:00 SAST
+# TIMESTAMP     : 2026-10-12 18:14:00 SAST
 # LOCKED BY     : Nisaar Ally
-# STATUS        : PRODUCTION LOCKED (Dynamic Reference & Multi-Item Support)
+# STATUS        : PRODUCTION LOCKED (Product Catalog, Dynamic SKUs & Payment Structures)
 # ==============================================================================
 
 import streamlit as st
@@ -28,11 +28,31 @@ os.makedirs(POP_STORAGE_DIR, exist_ok=True)
 
 def auto_sanitize_session_state():
     """Validates and enforces strict data types and compliance default states on boot."""
+    
+    # Product Catalog Initialization
+    if "product_catalog" not in st.session_state or not isinstance(st.session_state.product_catalog, dict):
+        st.session_state.product_catalog = {
+            "600ml Food Flask (Standard)": {
+                "desc": "600ml Food Flask\nPlain SS304 Body Configuration. Landed DDP Pinetown.",
+                "price": 155.32
+            },
+            "YogiBerry Thermal Flask": {
+                "desc": "YogiBerry Branded Thermal Flask\nCustom Pantone 176C Coating. Landed DDP Pinetown.",
+                "price": 178.50
+            },
+            "Pedro's Branded Cup": {
+                "desc": "Pedro's Flame-Grilled Chicken Branded Beverage Cup\nCustom Insulated Poly-Lined Configuration.",
+                "price": 24.80
+            }
+        }
+
     default_item = {
-        "desc": "600ml Food Flask\nPlain SS304 Body Configuration. Landed DDP Pinetown.",
+        "sku": "SKU#00001",
+        "desc": st.session_state.product_catalog["600ml Food Flask (Standard)"]["desc"],
         "qty": 3000,
-        "price": 155.32
+        "price": st.session_state.product_catalog["600ml Food Flask (Standard)"]["price"]
     }
+
     if "invoice_items" not in st.session_state or not isinstance(st.session_state.invoice_items, list):
         st.session_state.invoice_items = [default_item]
 
@@ -85,7 +105,7 @@ st.sidebar.markdown("### 🔒 System Audit & Status")
 st.sidebar.success("""
 **Status:** Operational (Auto-Guarded)  
 **Author:** Nisaar Ally  
-**Timestamp:** 2026-10-12 17:53:00 SAST  
+**Timestamp:** 2026-10-12 18:14:00 SAST  
 **Auto-Backup:** Active (Daily 23:45 SAST)  
 **Sender:** fantastic1za@gmail.com  
 """)
@@ -191,9 +211,28 @@ with tab1:
     st.markdown("---")
     st.subheader(f"Line Items Specification — {doc_type}")
 
+    # Render All Line Items with Product Catalog Dropdown & Dynamic SKU (SKU#0000X)
+    catalog_options = list(st.session_state.product_catalog.keys()) + ["+ Custom Product Description"]
+
     for idx, item in enumerate(st.session_state.invoice_items):
-        st.markdown(f"**Item #{idx+1}**")
+        sku_code = f"SKU#{str(idx + 1).zfill(5)}"
+        item["sku"] = sku_code
+
+        st.markdown(f"**Item #{idx+1} | Code: `{sku_code}`**")
+
+        selected_product = st.selectbox(
+            f"Select Product Catalog Item #{idx+1}", 
+            catalog_options, 
+            key=f"cat_sel_{idx}"
+        )
+
+        if selected_product != "+ Custom Product Description":
+            prod_data = st.session_state.product_catalog[selected_product]
+            item["desc"] = prod_data["desc"]
+            item["price"] = prod_data["price"]
+
         item["desc"] = st.text_area(f"Description #{idx+1}", value=str(item.get("desc", "")), key=f"desc_{idx}", height=68)
+        
         col_q, col_p = st.columns(2)
         with col_q:
             item["qty"] = st.number_input(f"Qty #{idx+1}", min_value=1, value=int(item.get("qty", 1)), key=f"qty_{idx}")
@@ -204,7 +243,12 @@ with tab1:
     col_add, col_rem = st.columns([1, 1])
     with col_add:
         if st.button("➕ Add Line Item"):
-            st.session_state.invoice_items.append({"desc": "", "qty": 1, "price": 0.0})
+            st.session_state.invoice_items.append({
+                "sku": f"SKU#{str(len(st.session_state.invoice_items) + 1).zfill(5)}",
+                "desc": "", 
+                "qty": 1, 
+                "price": 0.0
+            })
             st.rerun()
     with col_rem:
         if len(st.session_state.invoice_items) > 1:
