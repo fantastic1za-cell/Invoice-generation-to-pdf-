@@ -2,9 +2,9 @@
 # SCRIPT MODULE : app.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 18:00:00 SAST
+# TIMESTAMP     : 2026-10-04 18:30:00 SAST
 # LOCKED BY     : Nisaar Ally
-# STATUS        : PRODUCTION LOCKED (Multi-Item & Dynamic Payment Structure Support)
+# STATUS        : PRODUCTION LOCKED (Dynamic Reference & Multi-Item Support)
 # ==============================================================================
 
 import streamlit as st
@@ -85,7 +85,7 @@ st.sidebar.markdown("### 🔒 System Audit & Status")
 st.sidebar.success("""
 **Status:** Operational (Auto-Guarded)  
 **Author:** Nisaar Ally  
-**Timestamp:** 2026-10-04 18:00:00 SAST  
+**Timestamp:** 2026-10-04 18:30:00 SAST  
 **Auto-Backup:** Active (Daily 23:45 SAST)  
 **Sender:** fantastic1za@gmail.com  
 """)
@@ -109,7 +109,23 @@ with tab1:
     with col_d3:
         doc_date = st.date_input("Document Date", value=date.today())
 
-    doc_ref = st.text_input("Document Number / Ref", value="PI-20261002-02")
+    # DYNAMIC DOCUMENT REFERENCE GENERATOR
+    prefix_map = {
+        "PRO FORMA TAX INVOICE": "PI",
+        "TAX INVOICE": "INV",
+        "QUOTATION": "QUO"
+    }
+    prefix = prefix_map.get(doc_type, "PI")
+    date_str = doc_date.strftime("%Y%m%d")
+    base_pattern = f"{prefix}-{date_str}"
+
+    # Automatically recalculate reference when document type or date changes
+    if "last_doc_pattern" not in st.session_state or st.session_state.last_doc_pattern != base_pattern:
+        existing_count = sum(1 for item in st.session_state.processed_ledger if item.get("Ref", "").startswith(base_pattern))
+        st.session_state.current_doc_ref = f"{base_pattern}-{existing_count + 1:02d}"
+        st.session_state.last_doc_pattern = base_pattern
+
+    doc_ref = st.text_input("Document Number / Ref", key="current_doc_ref")
 
     st.markdown("---")
     st.subheader("Client Selection & Client Capture")
@@ -176,7 +192,6 @@ with tab1:
     st.markdown("---")
     st.subheader(f"Line Items Specification — {doc_type}")
 
-    # Render All Line Items Dynamically with Proper Unique Keys
     for idx, item in enumerate(st.session_state.invoice_items):
         st.markdown(f"**Item #{idx+1}**")
         item["desc"] = st.text_area(f"Description #{idx+1}", value=str(item.get("desc", "")), key=f"desc_{idx}", height=68)
@@ -214,7 +229,6 @@ with tab1:
     if "Custom Percentage" in payment_mode:
         custom_pct = st.slider("Select Due Tranche Percentage (%)", min_value=5, max_value=95, value=50, step=5)
 
-    # Financial Calculations
     subtotal = sum(float(i.get("qty", 1)) * float(i.get("price", 0.0)) for i in st.session_state.invoice_items)
     vat = subtotal * config.TAX_RATE
     grand_total = subtotal + vat
@@ -237,7 +251,6 @@ with tab1:
 
     st.markdown("---")
 
-    # PDF Payload Generation
     invoice_payload = {
         "doc_type": doc_type,
         "invoice_number": doc_ref,
@@ -256,7 +269,6 @@ with tab1:
 
     pdf_bytes = generate_sars_pdf(invoice_payload)
 
-    # Dispatch Controls
     st.markdown("### 🚀 Document Output & Dispatch")
     
     col_prev, col_dl, col_em = st.columns(3)
