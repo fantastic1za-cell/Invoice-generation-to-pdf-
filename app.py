@@ -2,9 +2,9 @@
 # SCRIPT MODULE : app.py
 # REPOSITORY    : fantastic1za-cell/Invoice-generator-3
 # AUTHOR        : Nisaar Ally
-# TIMESTAMP     : 2026-10-04 16:10:00 SAST
+# TIMESTAMP     : 2026-10-04 18:00:00 SAST
 # LOCKED BY     : Nisaar Ally
-# STATUS        : PRODUCTION LOCKED (In-App PDF Viewer + Native Mobile Controls)
+# STATUS        : PRODUCTION LOCKED (Multi-Item & Dynamic Payment Structure Support)
 # ==============================================================================
 
 import streamlit as st
@@ -23,14 +23,11 @@ from pdf_engine import generate_sars_pdf
 # Page Configuration
 st.set_page_config(page_title="Mr Mobile SA - Enterprise Document Engine", page_icon="📱", layout="wide")
 
-# POP STORAGE DIRECTORY INITIALIZATION
 POP_STORAGE_DIR = "uploaded_pops"
 os.makedirs(POP_STORAGE_DIR, exist_ok=True)
 
-# AUTOMATED PRODUCTION-GRADE SESSION SANITIZER
 def auto_sanitize_session_state():
     """Validates and enforces strict data types and compliance default states on boot."""
-    
     default_item = {
         "desc": "600ml Food Flask\nPlain SS304 Body Configuration. Landed DDP Pinetown.",
         "qty": 3000,
@@ -38,12 +35,6 @@ def auto_sanitize_session_state():
     }
     if "invoice_items" not in st.session_state or not isinstance(st.session_state.invoice_items, list):
         st.session_state.invoice_items = [default_item]
-    else:
-        valid_items = [
-            i for i in st.session_state.invoice_items 
-            if isinstance(i, dict) and "desc" in i and "qty" in i and "price" in i
-        ]
-        st.session_state.invoice_items = valid_items if valid_items else [default_item]
 
     default_db = {
         "Twenty-Five Star (Pty) Ltd": {
@@ -87,7 +78,6 @@ def auto_sanitize_session_state():
 
 auto_sanitize_session_state()
 
-# App Header & System Info
 st.title("📱 Mr Mobile SA — Enterprise Document & Financial Engine")
 st.caption("Operational Engine | SARS VAT Compliant [Locked: 2026-10-04]")
 
@@ -95,12 +85,11 @@ st.sidebar.markdown("### 🔒 System Audit & Status")
 st.sidebar.success("""
 **Status:** Operational (Auto-Guarded)  
 **Author:** Nisaar Ally  
-**Timestamp:** 2026-10-04 16:10:00 SAST  
+**Timestamp:** 2026-10-04 18:00:00 SAST  
 **Auto-Backup:** Active (Daily 23:45 SAST)  
 **Sender:** fantastic1za@gmail.com  
 """)
 
-# Main Navigation Tabs
 tab1, tab2 = st.tabs([
     "📄 Commercial Document Generator", 
     "📊 Financial Tracking Dashboard & POP Verification"
@@ -165,7 +154,6 @@ with tab1:
                 st.success(f"Client '{new_client_name}' successfully saved!")
                 st.rerun()
 
-    # Load Client Details
     client_info = st.session_state.client_database.get(selected_client_name, {})
     client_name = selected_client_name
     
@@ -188,13 +176,16 @@ with tab1:
     st.markdown("---")
     st.subheader(f"Line Items Specification — {doc_type}")
 
+    # Render All Line Items Dynamically with Proper Unique Keys
     for idx, item in enumerate(st.session_state.invoice_items):
+        st.markdown(f"**Item #{idx+1}**")
         item["desc"] = st.text_area(f"Description #{idx+1}", value=str(item.get("desc", "")), key=f"desc_{idx}", height=68)
         col_q, col_p = st.columns(2)
         with col_q:
             item["qty"] = st.number_input(f"Qty #{idx+1}", min_value=1, value=int(item.get("qty", 1)), key=f"qty_{idx}")
         with col_p:
             item["price"] = st.number_input(f"Unit Price (Excl) #{idx+1}", min_value=0.0, value=float(item.get("price", 0.0)), step=10.0, key=f"price_{idx}")
+        st.markdown("---")
 
     col_add, col_rem = st.columns([1, 1])
     with col_add:
@@ -203,23 +194,46 @@ with tab1:
             st.rerun()
     with col_rem:
         if len(st.session_state.invoice_items) > 1:
-            if st.button("➖ Remove Line Item"):
+            if st.button("➖ Remove Last Line Item"):
                 st.session_state.invoice_items.pop()
                 st.rerun()
 
     st.markdown("---")
+    st.subheader("💳 Payment Structure & Tranche Configuration")
+
+    payment_mode = st.selectbox(
+        "Select Payment Terms / Tranche Structure", 
+        [
+            "50% Deposit & 50% Balance Tranches (Default)", 
+            "Full Payment (100%) Upon Invoice", 
+            "Custom Percentage Tranche"
+        ]
+    )
+
+    custom_pct = 50.0
+    if "Custom Percentage" in payment_mode:
+        custom_pct = st.slider("Select Due Tranche Percentage (%)", min_value=5, max_value=95, value=50, step=5)
 
     # Financial Calculations
     subtotal = sum(float(i.get("qty", 1)) * float(i.get("price", 0.0)) for i in st.session_state.invoice_items)
     vat = subtotal * config.TAX_RATE
     grand_total = subtotal + vat
-    deposit = grand_total * 0.50
+
+    if "Full Payment" in payment_mode:
+        due_amount = grand_total
+        tranche_label = "Full Payment (100%)"
+    elif "Custom Percentage" in payment_mode:
+        due_amount = grand_total * (custom_pct / 100.0)
+        tranche_label = f"Custom Tranche ({custom_pct}%)"
+    else:
+        due_amount = grand_total * 0.50
+        tranche_label = "50% Tranche Deposit"
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Subtotal (Excl)", f"R {subtotal:,.2f}")
     c2.metric("VAT (15%)", f"R {vat:,.2f}")
     c3.metric("Grand Total (Incl)", f"R {grand_total:,.2f}")
-    c4.metric("50% Tranche Deposit", f"R {deposit:,.2f}")
+    c4.metric(tranche_label, f"R {due_amount:,.2f}")
 
     st.markdown("---")
 
@@ -235,7 +249,9 @@ with tab1:
         "reg_address": reg_address,
         "delivery_address": delivery_address,
         "client_email": client_email,
-        "items": st.session_state.invoice_items
+        "items": st.session_state.invoice_items,
+        "payment_mode": payment_mode,
+        "custom_pct": custom_pct
     }
 
     pdf_bytes = generate_sars_pdf(invoice_payload)
@@ -282,10 +298,10 @@ with tab1:
                                 <li><b>Subtotal (Excl. VAT):</b> R {subtotal:,.2f}</li>
                                 <li><b>VAT (15%):</b> R {vat:,.2f}</li>
                                 <li><b>Grand Total (Incl. VAT):</b> R {grand_total:,.2f}</li>
-                                <li><b>50% Required Tranche Deposit:</b> R {deposit:,.2f}</li>
+                                <li><b>Required Payment ({tranche_label}):</b> R {due_amount:,.2f}</li>
                             </ul>
                         </div>
-                        <p>Please email proof of payment to initiate manufacturing.</p>
+                        <p>Please email proof of payment to finalize processing.</p>
                         <hr style="border: 0; border-top: 1px solid #dddddd; margin: 20px 0;">
                         <p><b>Regards,</b><br/>
                         <strong>Nisaar Ally</strong><br/>
@@ -316,7 +332,7 @@ with tab1:
                             "Subtotal": subtotal,
                             "VAT": vat,
                             "Total": grand_total,
-                            "50% Tranche": deposit,
+                            "50% Tranche": due_amount,
                             "Status": "Awaiting POP / Deposit",
                             "POP File Path": None
                         }
@@ -327,7 +343,6 @@ with tab1:
                 except Exception as e:
                     st.error(f"❌ Failed to dispatch email: {str(e)}")
 
-    # In-App PDF Viewer Render
     if st.session_state.show_in_app_preview:
         st.markdown("---")
         st.markdown("### 👁️ In-App PDF Document Viewer")
@@ -374,7 +389,7 @@ with tab2:
             if current_item:
                 st.info(f"**Selected Ref:** {current_item['Ref']}\n\n"
                         f"**Client:** {current_item['Client']}\n\n"
-                        f"**Required Deposit:** R {current_item['50% Tranche']:,.2f}\n\n"
+                        f"**Required Amount:** R {current_item['50% Tranche']:,.2f}\n\n"
                         f"**Current Status:** `{current_item['Status']}`\n\n"
                         f"**Stored POP Path:** `{current_item.get('POP File Path', 'None')}`")
 
